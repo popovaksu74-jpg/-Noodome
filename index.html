@@ -1066,6 +1066,11 @@ function api(action,payload){
     .then(function(res){return res.json();},function(){throw new Error("Нет связи с общим хранилищем. Правки сохранены в браузере и уйдут позже.");})
     .then(function(j){if(!j||!j.ok){throw new Error(j&&j.error==="auth"?"Неверный пароль команды":(j&&j.error)||"Ошибка хранилища");}return j;});
 }
+function copyInviteLink(d){
+  var l=inviteLink(d);
+  if(!l){toast(!remoteUrl()?"Ссылка появится, когда подключено общее хранилище: раздел «Подключения»":"Откройте сервис по адресу сайта, а не из скачанного файла: тогда ссылка будет настоящей");return;}
+  copy(l,d.status==="approved"?"Ссылка скопирована":"Ссылка скопирована. Она заработает после статуса «Согласовано»");
+}
 function viewerBase(){return /^https?:$/.test(location.protocol)?new URL("p.html",location.href).href:"";}
 function inviteLink(d){var b=viewerBase();return remoteUrl()&&b?b+"?ref="+encodeURIComponent(d.slug):"";}
 function stripDoc(d){var o={};Object.keys(d).forEach(function(k){if(k!=="dirty"&&k!=="club"&&k!=="url")o[k]=d[k];});return o;}
@@ -1314,9 +1319,9 @@ function renderEditor(){
   }
   var h='<div class="edbar"><div class="who"><a class="icon" href="#invites" aria-label="Все приглашения">'+ic("back")+'</a><div style="min-width:0"><h1>'+esc(d.name)+'</h1><p class="saved" id="saveState"><span class="d"></span><span>'+(canStore?"Сохранено в браузере "+esc(when(d.updatedAt)):"Не забудьте сохранить в файл")+'</span></p></div></div>'+
     '<div class="row"><div class="seg status" role="group" aria-label="Статус"><button data-st="draft" aria-pressed="'+(d.status!=="approved")+'">Черновик</button><button data-st="approved" aria-pressed="'+(d.status==="approved")+'">'+ic("check")+'Согласовано</button></div>'+
-    '<button class="btn primary" id="dlBtn">'+ic("download")+'Скачать лендинг</button>'+
+    '<button class="btn primary" id="linkBtn">'+ic("link")+'Скопировать ссылку</button><button class="btn" id="dlBtn">'+ic("download")+'Скачать файл</button>'+
     '<div class="menu"><button class="icon" id="menuBtn" aria-label="Ещё" aria-expanded="'+E.menu+'">'+ic("more")+'</button>'+(E.menu?'<div class="menu-pop"><button data-m="preview">'+ic("eye")+'Посмотреть как кандидат</button><button data-m="msg">'+ic("msg")+'Текст для мессенджера</button><button data-m="json">'+ic("download")+'Сохранить это приглашение в файл</button><button data-m="danger" class="danger">'+ic("trash")+'Удалить приглашение</button></div>':'')+'</div></div></div>';
-  if(E.share)h+='<div class="share"><div class="row" style="justify-content:space-between"><b class="h3">Текст для Telegram или WhatsApp</b><button class="icon" data-c="shareclose" aria-label="Закрыть">✕</button></div><p class="hint">Коннектор отправит его сам.'+(inviteLink(d)?' Ссылка уже вставлена: '+(d.status==='approved'?'она открывается у любого, у кого есть адрес.':'она заработает после статуса «Согласовано».'):' Вместо {ссылка} подставьте адрес страницы. Подключите общее хранилище в разделе «Подключения», и ссылка появится сама.')+'</p><div class="field"><textarea readonly rows="4">'+esc(msgText(d))+'</textarea></div><div class="row"><button class="btn sm" data-c="copymsg">'+ic("copy")+'Скопировать</button></div></div>';
+  if(E.share)h+='<div class="share"><div class="row" style="justify-content:space-between"><b class="h3">Текст для Telegram или WhatsApp</b><button class="icon" data-c="shareclose" aria-label="Закрыть">✕</button></div><p class="hint">Коннектор отправит его сам.'+(inviteLink(d)?' Ссылка уже вставлена: '+(d.status==='approved'?'она открывается у любого, у кого есть адрес.':'она заработает после статуса «Согласовано».'):' Вместо {ссылка} подставьте адрес страницы. Подключите общее хранилище в разделе «Подключения», и ссылка появится сама.')+'</p>'+(inviteLink(d)?'<div class="field"><span>Ссылка на приглашение</span><input readonly value="'+esc(inviteLink(d))+'"></div><div class="row"><button class="btn sm primary" data-c="copylink">'+ic("link")+'Скопировать ссылку</button></div>':'')+'<div class="field"><span>Сообщение</span><textarea readonly rows="4">'+esc(msgText(d))+'</textarea></div><div class="row"><button class="btn sm" data-c="copymsg">'+ic("copy")+'Скопировать сообщение</button></div></div>';
   if(E.delAsk)h+='<div class="banner err">'+ic("trash")+'<div class="grow"><b>Удалить приглашение '+esc(d.nameGenitive||d.name)+'?</b><span>Оно пропадёт из этого браузера. Если нужно, сначала сохраните его в файл.</span></div><div class="row"><button class="btn sm" data-c="delno">Отмена</button><button class="btn sm primary" data-c="delyes">Удалить</button></div></div>';
   h+=storeBanner()+conflictBanner(d);
   h+='<div class="ed-cols"><div style="display:grid;gap:16px;min-width:0" id="edl">';
@@ -1427,6 +1432,7 @@ function bindEditor(){
   view.querySelectorAll("[data-v]").forEach(function(b){b.onclick=function(){E.view=b.dataset.v;renderEditor();};});
   view.querySelectorAll("[data-tab]").forEach(function(b){b.onclick=function(){E.tab=b.dataset.tab;renderEditor();};});
   view.querySelectorAll("[data-st]").forEach(function(b){b.onclick=function(){if(d.status===b.dataset.st)return;d.status=b.dataset.st;changed(true);};});
+  var lkb=document.getElementById("linkBtn");if(lkb)lkb.onclick=function(){copyInviteLink(d);};
   var dlb=document.getElementById("dlBtn");if(dlb)dlb.onclick=function(){download(fileName(d),standalone(d),"text/html");toast(d.status==="approved"?"Файл "+fileName(d)+" скачан":"Скачан черновик. Перед отправкой согласуйте текст с Коннектором");};
   var mb=document.getElementById("menuBtn");if(mb)mb.onclick=function(e){e.stopPropagation();E.menu=!E.menu;renderEditor();};
   view.querySelectorAll("[data-m]").forEach(function(b){b.onclick=function(){E.menu=false;var m=b.dataset.m;
@@ -1434,7 +1440,7 @@ function bindEditor(){
     else if(m==="json"){download(d.slug+".json",JSON.stringify(d),"application/json");renderEditor();}
     else if(m==="danger"){E.delAsk=true;renderEditor();window.scrollTo(0,0);}};});
   view.querySelectorAll("[data-c]").forEach(function(b){b.onclick=function(){var c=b.dataset.c;
-    if(c==="shareclose"){E.share=false;renderEditor();}else if(c==="copymsg")copy(msgText(d),"Текст скопирован");
+    if(c==="shareclose"){E.share=false;renderEditor();}else if(c==="copymsg")copy(msgText(d),"Текст скопирован");else if(c==="copylink")copyInviteLink(d);
     else if(c==="delno"){E.delAsk=false;renderEditor();}
     else if(c==="clubreset"){E.resetAsk=true;renderEditor();}else if(c==="resetno"){E.resetAsk=false;renderEditor();}
     else if(c==="resetyes"){DB.club=clubFromSeed();DB.clubVersion=CLUB_SEED.version||1;DB.clubDirty=true;DB.clubUpdatedAt=new Date().toISOString();persist();if(rcfg())scheduleClub();S.ed=null;openClub();toast("Общие блоки возвращены к исходным");}else if(c==="delyes"){var wasRemote=d.rev&&rcfg();delete DB.docs[d.slug];persist();S.ed=null;if(wasRemote)api("delete",{slug:d.slug}).catch(function(x){toast("Удалено у вас, но не в хранилище: "+x.message);});toast("Приглашение удалено");go("invites");}};});
