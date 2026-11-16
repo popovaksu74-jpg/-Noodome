@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Личное приглашение в Noôdome</title>
+<meta name="description" content="Личное приглашение в клуб Noôdome от участника сообщества">
+<meta property="og:title" content="Личное приглашение в Noôdome">
+<meta property="og:description" content="Участник клуба приглашает вас познакомиться с Noôdome">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@300;400;500&display=swap">
+<style>html,body{margin:0;background:#F6F4EF}</style>
+</head>
+<body>
+<div class="ndl" id="ndl"><p style="font:15px/1.5 system-ui,sans-serif;color:#77796F;padding:40px 20px;text-align:center">Загружаю приглашение…</p></div>
+<script>
+/*@LANDING@*/
+</script>
+<script>
+/* Страница-приглашение по ссылке p.html?ref=код. Данные берутся из общего хранилища команды (адрес в config.json). */
+(function () {
+  var root = document.getElementById("ndl"), q = new URLSearchParams(location.search), ref = (q.get("ref") || "").trim(), BACKEND = "";
+  var st = document.createElement("style"); st.textContent = "html,body{margin:0;background:var(--nd-bg)}" + NDL.css + ".ndl .vm{min-height:80vh;display:grid;align-content:center;justify-items:center;gap:14px;text-align:center;padding:40px 24px}.ndl .vm h1{font-size:34px;line-height:1.15;max-width:14em}.ndl .vm p{max-width:30em;color:var(--nd-ink2)}";
+  document.head.appendChild(st);
+  function note(title, text) { root.innerHTML = '<div class="vm"><span class="mark"><svg viewBox="0 0 70.06 20" aria-hidden="true"><path d="M70.05 20C62.54 8.06 49.61 0 35.03 0 20.29 0 7.52 7.91 0 20h70.05Z"/></svg>Noôdome</span><h1>' + NDL.esc(title) + "</h1><p>" + NDL.esc(text) + "</p></div>"; }
+  if (!ref) { note("Приглашение не найдено", "В адресе нет кода приглашения. Попросите отправителя прислать ссылку ещё раз."); return; }
+  fetch("config.json", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (cfg) {
+    BACKEND = (cfg && cfg.backend) || "";
+    if (!/^https:\/\//.test(BACKEND)) throw { code: "config" };
+    return fetch(BACKEND + "?action=page&ref=" + encodeURIComponent(ref)).then(function (r) { return r.json(); });
+  }).then(function (j) {
+    if (!j || !j.ok || !j.doc) throw { code: "missing" };
+    var C = j.doc;
+    document.title = C.name + " приглашает вас познакомиться с Noôdome";
+    root.innerHTML = NDL.render(C);
+    NDL.bind(root, C, { submit: function (lead) {
+      lead.action = "lead"; lead.ref = ref; lead.utm = q.toString(); lead.page = location.href;
+      return fetch(BACKEND, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(lead) })
+        .then(function (r) { return r.json(); }).then(function (d) { if (!d || !d.ok) throw new Error("error"); return { mode: "saved" }; });
+    } });
+  }).catch(function (e) {
+    if (e && e.code === "missing") note("Приглашение не найдено", "Возможно, оно ещё не опубликовано или ссылка устарела. Попросите отправителя проверить адрес.");
+    else if (e && e.code === "config") note("Сервис пока не подключён", "Страница настроена не до конца. Напишите команде клуба: customers@nd.club.");
+    else note("Не получилось загрузить приглашение", "Проверьте интернет и обновите страницу.");
+  });
+})();
+</script>
+</body>
+</html>

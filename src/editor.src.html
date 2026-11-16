@@ -35,14 +35,15 @@
     <nav class="nav" aria-label="Разделы">
       <a href="#invites" data-nav="invites"><svg class="i"><use href="#i-users"/></svg><span class="label">Приглашения</span></a>
       <a href="#new" data-nav="new"><svg class="i"><use href="#i-plus"/></svg><span class="label">Новое</span></a>
-      <a href="#ai" data-nav="ai"><svg class="i"><use href="#i-spark"/></svg><span class="label">Подключение ИИ</span></a>
+      <a href="#leads" data-nav="leads"><svg class="i"><use href="#i-inbox"/></svg><span class="label">Заявки</span></a>
+      <a href="#ai" data-nav="ai"><svg class="i"><use href="#i-gear"/></svg><span class="label">Подключения</span></a>
       <a href="#club" data-nav="club"><svg class="i"><use href="#i-folder"/></svg><span class="label">Клуб: общие блоки</span></a>
     </nav>
     <div class="side-foot">
       <a href="#" id="exportAll"><svg class="i"><use href="#i-download"/></svg>Сохранить всё в файл</a>
       <a href="#" id="importAll"><svg class="i"><use href="#i-upload"/></svg>Открыть файл</a>
       <input type="file" id="importFile" accept=".json,application/json" hidden>
-      <div class="me">Работает в браузере, без сервера</div>
+      <div class="me" id="syncState">Работает в браузере, без сервера</div>
     </div>
   </aside>
   <main class="main"><div class="wrap" id="view"></div></main>
@@ -145,7 +146,7 @@ function slugify(s){var m={а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"e",ж:"
   var base=o,i=2;while(DB.docs[o]){o=base+"-"+i;i++;}return o;}
 function download(name,text,type){var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type:type||"text/plain"}));a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);}
 function jsonSafe(v){return JSON.stringify(v).replace(/</g,"\\u003c").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029");}
-function msgText(d){return String(d.messenger||"Здравствуйте! Хочу пригласить вас в Noôdome, это сообщество, в котором я давно. Вот моё личное приглашение: {ссылка}");}
+function msgText(d){var t=String(d.messenger||"Здравствуйте! Хочу пригласить вас в Noôdome, это сообщество, в котором я давно. Вот моё личное приглашение: {ссылка}"),l=inviteLink(d);return l?t.replace(/\{ссылка\}/g,l):t;}
 
 /* ================= ИИ: свой ключ в браузере или мостик через чат ================= */
 /* Ключ хранится только в localStorage этого браузера. В экспорт, в лендинги и на GitHub он не попадает. */
@@ -229,7 +230,7 @@ function readFile(f){
 }
 
 /* ================= Готовый лендинг одним файлом ================= */
-function endpoint(){var u=String((DB.settings||{}).endpoint||"").trim();return /^https:\/\//.test(u)?u:"";}
+function endpoint(){var u=String((DB.settings||{}).endpoint||"").trim();return /^https:\/\//.test(u)?u:remoteUrl();}
 function publicDoc(doc){
   var o={};["slug","name","nameGenitive","signoff","role","photo","photoIsPortrait","blocks"].forEach(function(k){if(doc[k]!==undefined)o[k]=doc[k];});
   /* В файл кладём только те общие блоки, что стоят на странице. */
@@ -248,30 +249,152 @@ function standalone(doc){
     '/* Куда отправлять заявки. Пока пусто: кандидат получает готовый текст и отправляет его клубу на почту. Когда появится приёмник заявок, впишите его адрес. */\n'+
     'var FORM_ENDPOINT = '+JSON.stringify(endpoint())+';\nvar C = '+jsonSafe({slug:pub.slug,name:pub.name,nameGenitive:pub.nameGenitive,signoff:pub.signoff})+';\n'+
     '(function(){var root=document.getElementById("ndl");var q=new URLSearchParams(location.search);\n'+
-    'NDL.bind(root,C,{submit:function(lead){lead.ref=q.get("ref")||C.slug;lead.utm=q.toString();lead.page=location.href;\n'+
+    'NDL.bind(root,C,{submit:function(lead){lead.action="lead";lead.ref=q.get("ref")||C.slug;lead.utm=q.toString();lead.page=location.href;\n'+
     'if(!FORM_ENDPOINT)return {mode:"manual"};return fetch(FORM_ENDPOINT,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(lead)})'+
     '.then(function(r){return r.json();}).then(function(d){if(!d||!d.ok)throw new Error("error");return {mode:"saved"};});}});})();\n<\/script>\n</body>\n</html>\n';
 }
 
 
 /* ================= Подключение ИИ ================= */
+
+/* ================= Общая работа: Google-таблица через Apps Script ================= */
+/* Приглашения, общие блоки и заявки лежат в таблице владельца. Браузер хранит копию и отправляет правки на сервер. */
+var LEAD_STATUS=["Новая","Связались","Встреча","Вступил","Не подошло"];
+var SYNC={state:"off",msg:"",activity:[],conflict:null,clubConflict:null,timers:{},pulling:null,last:0};
+function rcfg(){var r=(DB.settings||{}).remote;return r&&/^https:\/\//.test(r.url||"")&&r.token?r:null;}
+function remoteUrl(){var r=(DB.settings||{}).remote;return r&&/^https:\/\//.test(r.url||"")?r.url:"";}
+function setSync(state,msg){
+  SYNC.state=state;SYNC.msg=msg||"";var el=document.getElementById("syncState");if(!el)return;
+  el.textContent=state==="ok"?"Общее хранилище подключено":state==="busy"?"Синхронизация…":state==="conflict"?"Есть конфликт правок":state==="err"?(msg||"Нет связи с хранилищем"):"Работает в браузере, без сервера";
+  el.className="me"+(state==="err"||state==="conflict"?" bad":"");
+}
+function api(action,payload){
+  var r=rcfg();if(!r)return Promise.reject(new Error("Общая работа не подключена"));
+  return fetch(r.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({action:action,token:r.token,who:r.who||""},payload||{}))})
+    .then(function(res){return res.json();},function(){throw new Error("Нет связи с общим хранилищем. Правки сохранены в браузере и уйдут позже.");})
+    .then(function(j){if(!j||!j.ok){throw new Error(j&&j.error==="auth"?"Неверный пароль команды":(j&&j.error)||"Ошибка хранилища");}return j;});
+}
+function viewerBase(){return /^https?:$/.test(location.protocol)?new URL("p.html",location.href).href:"";}
+function inviteLink(d){var b=viewerBase();return remoteUrl()&&b?b+"?ref="+encodeURIComponent(d.slug):"";}
+function stripDoc(d){var o={};Object.keys(d).forEach(function(k){if(k!=="dirty"&&k!=="club"&&k!=="url")o[k]=d[k];});return o;}
+function schedulePush(d){clearTimeout(SYNC.timers[d.slug]);SYNC.timers[d.slug]=setTimeout(function(){pushDoc(d);},1500);}
+function pushDoc(d){
+  if(!rcfg()||d.demo||!DB.docs[d.slug])return Promise.resolve();
+  var ts=d.updatedAt;setSync("busy");
+  return api("save",{doc:stripDoc(d),baseRev:d.rev||0,link:inviteLink(d)}).then(function(r){
+    if(r.conflict){SYNC.conflict={slug:d.slug,by:r.updatedBy,at:r.updatedAt,rev:r.rev,deleted:!!r.deleted};setSync("conflict");if(S.ed&&S.ed.slug===d.slug&&!S.ed.club)renderEditor();return;}
+    d.rev=r.rev;if(d.updatedAt===ts){d.dirty=false;d.updatedAt=r.updatedAt;d.updatedBy=r.updatedBy;}else schedulePush(d);
+    persist();setSync(SYNC.conflict||SYNC.clubConflict?"conflict":"ok");
+  },function(e){setSync("err",e.message);});
+}
+function scheduleClub(){clearTimeout(SYNC.timers.__club);SYNC.timers.__club=setTimeout(pushClub,1500);}
+function pushClub(){
+  if(!rcfg())return Promise.resolve();
+  var ts=DB.clubUpdatedAt;setSync("busy");
+  return api("saveClub",{data:DB.club,baseRev:DB.clubRev||0}).then(function(r){
+    if(r.conflict){SYNC.clubConflict={by:r.updatedBy,at:r.updatedAt,rev:r.rev};setSync("conflict");if(hash()==="club")renderEditor();return;}
+    DB.clubRev=r.rev;if(DB.clubUpdatedAt===ts)DB.clubDirty=false;else scheduleClub();persist();setSync(SYNC.conflict||SYNC.clubConflict?"conflict":"ok");
+  },function(e){setSync("err",e.message);});
+}
+function pull(){
+  if(!rcfg())return Promise.resolve(false);
+  if(SYNC.pulling)return SYNC.pulling;
+  setSync("busy");
+  SYNC.pulling=api("list").then(function(L){
+    var remote={},jobs=[];L.invites.forEach(function(x){remote[x.slug]=x;});
+    L.invites.forEach(function(x){var d=DB.docs[x.slug];
+      if(!d||((d.rev||0)<x.rev&&!d.dirty))jobs.push(api("get",{slug:x.slug}).then(function(g){DB.docs[x.slug]=g.doc;}));});
+    if((L.club.rev||0)>(DB.clubRev||0)&&!DB.clubDirty)jobs.push(api("club").then(function(c){if(c.data){DB.club=Object.assign(clubFromSeed(),c.data);DB.clubRev=c.rev;}}));
+    return Promise.all(jobs).then(function(){
+      Object.keys(DB.docs).forEach(function(k){var d=DB.docs[k];
+        if(!remote[k]){if(d.rev&&!d.dirty)delete DB.docs[k];else if(!d.demo)pushDoc(d);}
+        else if(d.dirty&&!SYNC.conflict)pushDoc(d);});
+      if(!(L.club.rev||0)||DB.clubDirty)pushClub();
+      SYNC.activity=L.activity||[];SYNC.last=Date.now();persist();
+      if(!SYNC.conflict&&!SYNC.clubConflict)setSync("ok");
+      afterPull();return true;
+    });
+  }).catch(function(e){setSync("err",e.message);return false;}).then(function(v){SYNC.pulling=null;return v;});
+  return SYNC.pulling;
+}
+function afterPull(){
+  var h=hash();
+  if(h.indexOf("edit-")===0){var sl=decodeURIComponent(h.slice(5));if(!DB.docs[sl])route();else if(S.ed&&S.ed.doc!==DB.docs[sl]&&!S.ed.doc.dirty){S.ed=null;route();}}
+  else if(h==="club"){if(!DB.clubDirty){S.ed=null;route();}}
+  else if(h!=="new"&&h!=="ai"&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)))route();
+}
+document.addEventListener("click",function(e){
+  var b=e.target.closest("[data-sync]");if(!b)return;var k=b.dataset.sync,c=SYNC.conflict;
+  if(k==="mine"&&c){var d=DB.docs[c.slug];d.rev=c.rev;d.dirty=true;SYNC.conflict=null;pushDoc(d).then(function(){if(S.ed)renderEditor();});}
+  else if(k==="theirs"&&c){api("get",{slug:c.slug}).then(function(g){DB.docs[c.slug]=g.doc;SYNC.conflict=null;S.ed=null;persist();setSync("ok");route();},function(x){toast(x.message);});}
+  else if(k==="cmine"&&SYNC.clubConflict){DB.clubRev=SYNC.clubConflict.rev;DB.clubDirty=true;SYNC.clubConflict=null;pushClub().then(function(){if(hash()==="club")renderEditor();});}
+  else if(k==="ctheirs"&&SYNC.clubConflict){api("club").then(function(r){if(r.data){DB.club=Object.assign(clubFromSeed(),r.data);DB.clubRev=r.rev;}DB.clubDirty=false;SYNC.clubConflict=null;S.ed=null;persist();setSync("ok");route();},function(x){toast(x.message);});}
+});
+function conflictBanner(d){
+  var c=SYNC.conflict;if(!c||c.slug!==d.slug)return "";
+  return '<div class="banner err">'+ic("info")+'<div class="grow"><b>'+(c.deleted?'Приглашение удалили в общем хранилище':'Коллега уже изменил это приглашение')+'</b><span>'+(c.by?esc(c.by)+(c.at?" · "+esc(when(c.at)):"")+". ":"")+'Ваши правки пока только в вашем браузере. Выберите, чья версия останется.</span></div><div class="row">'+(c.deleted?'':'<button class="btn sm" data-sync="theirs">Взять версию коллеги</button>')+'<button class="btn sm primary" data-sync="mine">Сохранить мою поверх</button></div></div>';
+}
+function clubConflictBanner(){
+  var c=SYNC.clubConflict;if(!c)return "";
+  return '<div class="banner err">'+ic("info")+'<div class="grow"><b>Коллега уже изменил общие блоки</b><span>'+(c.by?esc(c.by)+". ":"")+'Ваши правки пока только в вашем браузере. Выберите, чья версия останется.</span></div><div class="row"><button class="btn sm" data-sync="ctheirs">Взять версию коллеги</button><button class="btn sm primary" data-sync="cmine">Сохранить мою поверх</button></div></div>';
+}
+function activityPanel(){
+  if(!rcfg())return '<div class="banner">'+ic("info")+'<div class="grow"><b>Данные пока только в этом браузере</b><span>Чтобы команда работала вместе, заявки собирались в таблицу, а приглашения открывались по ссылке, подключите общее хранилище.</span></div><a class="btn sm" href="#ai">Подключения</a></div>';
+  var a=SYNC.activity||[];
+  return '<div class="panel" style="margin-top:20px"><b class="h3">Последние действия команды</b>'+(a.length?'<ul class="facts">'+a.map(function(x){return '<li><b>'+esc(x.who)+' · '+esc(x.action)+(x.what?': '+esc(x.what):'')+'</b><span class="muted">'+esc(when(x.at))+'</span></li>';}).join("")+'</ul>':'<p class="muted">Пока ничего не происходило.</p>')+'</div>';
+}
+
+/* ================= Заявки ================= */
+function renderLeads(){
+  var h='<div class="pagehead"><div><p class="eyebrow">Кандидаты</p><h1 class="title">Заявки</h1><p class="lead">Заявки со страниц-приглашений попадают в вашу Google-таблицу и сюда. Статус и комментарий видят все сотрудники.</p></div></div>';
+  if(!rcfg()){view.innerHTML=h+'<div class="empty">Чтобы заявки собирались, подключите общее хранилище.<a class="btn sm" href="#ai">Открыть подключения</a></div>';return;}
+  view.innerHTML=h+'<div class="row"><span class="spinner"></span>Загружаю заявки…</div>';
+  api("leads").then(function(r){
+    if(hash()!=="leads")return;
+    var L=r.leads.slice().reverse(),cnt={};LEAD_STATUS.forEach(function(k){cnt[k]=0;});L.forEach(function(l){if(cnt[l.status]!=null)cnt[l.status]++;});
+    var out=h+'<div class="row" style="flex-wrap:wrap;margin-bottom:14px"><b>Всего: '+L.length+'</b>'+LEAD_STATUS.map(function(k){return '<span class="pill draft">'+esc(k)+' · '+cnt[k]+'</span>';}).join("")+'<button class="btn sm ghost" id="leadsRefresh">'+ic("refresh")+'Обновить</button></div>';
+    out+=L.length?'<div class="grid">'+L.map(function(l){return '<div class="card" data-lead="'+l.row+'" data-contact="'+esc(l.contact)+'" style="display:grid;gap:10px"><div><b>'+esc(l.name)+'</b><div class="muted small">'+esc(l.contact)+' · '+esc(when(l.createdAt))+'</div></div>'+
+      (l.note?'<p class="small" style="margin:0">'+esc(l.note)+'</p>':'')+'<p class="muted small" style="margin:0">Рекомендатель: '+esc(l.connector||l.ref||"не указан")+'</p>'+
+      '<label class="field"><span>Статус</span><select data-lstatus>'+LEAD_STATUS.map(function(k){return '<option'+(l.status===k?' selected':'')+'>'+esc(k)+'</option>';}).join("")+'</select></label>'+
+      '<label class="field"><span>Комментарий команды</span><textarea rows="2" data-lcomment>'+esc(l.comment)+'</textarea></label></div>';}).join("")+'</div>':'<div class="empty">Заявок пока нет.</div>';
+    view.innerHTML=out;
+    document.getElementById("leadsRefresh").onclick=renderLeads;
+    view.querySelectorAll("[data-lead]").forEach(function(c){var row=+c.dataset.lead,contact=c.dataset.contact;
+      c.querySelector("[data-lstatus]").onchange=function(e){api("setLead",{row:row,contact:contact,status:e.target.value}).then(function(){toast("Статус сохранён");pull();},function(x){toast(x.message);});};
+      c.querySelector("[data-lcomment]").onchange=function(e){api("setLead",{row:row,contact:contact,comment:e.target.value}).then(function(){toast("Комментарий сохранён");},function(x){toast(x.message);});};});
+  },function(x){if(hash()==="leads")view.innerHTML=h+'<div class="banner err">'+ic("info")+'<div class="grow"><b>Не получилось загрузить заявки</b><span>'+esc(x.message)+'</span></div></div>';});
+}
+
+/* ================= Подключения: общая работа и ИИ ================= */
 function renderAI(){
-  var a=(DB.settings&&DB.settings.ai)||{provider:"gemini",key:"",model:"",base:""},P=PROVIDERS[a.provider]||PROVIDERS.gemini;
-  var h='<div class="pagehead"><div><p class="eyebrow">Настройки</p><h1 class="title">Подключение ИИ</h1><p class="lead">С ключом кнопка «Сгенерировать» пишет тексты прямо в сервисе. Ключ нужен каждому сотруднику свой: он вводится один раз и хранится только в этом браузере.</p></div></div>';
-  h+='<div class="panel" style="display:grid;gap:14px;max-width:640px"><label class="field"><span>Чей ИИ использовать</span><select id="ai-prov">'+Object.keys(PROVIDERS).map(function(k){return '<option value="'+k+'"'+(a.provider===k?" selected":"")+'>'+esc(PROVIDERS[k].label)+'</option>';}).join("")+'</select></label>'+
+  var a=(DB.settings&&DB.settings.ai)||{provider:"gemini",key:"",model:"",base:""},P=PROVIDERS[a.provider]||PROVIDERS.gemini,rm=(DB.settings&&DB.settings.remote)||{url:"",token:"",who:""};
+  var h='<div class="pagehead"><div><p class="eyebrow">Настройки</p><h1 class="title">Подключения</h1><p class="lead">Общее хранилище позволяет работать командой, а ИИ пишет тексты прямо в сервисе. Пароль и ключ хранятся только в этом браузере.</p></div></div>';
+  h+='<div class="panel" style="display:grid;gap:14px;max-width:640px"><b class="h3">Общая работа команды</b><p class="hint">Приглашения, общие блоки и заявки хранятся в вашей Google-таблице. Что меняет один сотрудник, видят остальные, а ссылки на приглашения открываются без файлов. Как это настроить, написано в README, раздел «Общее хранилище».</p>'+
+    '<label class="field"><span>Адрес хранилища (Apps Script, оканчивается на /exec)</span><input id="rm-url" value="'+esc(rm.url||"")+'" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false"></label>'+
+    '<label class="field"><span>Пароль команды</span><input id="rm-token" type="password" autocomplete="off" value="'+esc(rm.token||"")+'"></label>'+
+    '<label class="field"><span>Ваше имя (оно попадёт в журнал действий)</span><input id="rm-who" value="'+esc(rm.who||"")+'" placeholder="Например: Анна"></label>'+
+    '<div class="row"><button class="btn primary" id="rm-test">Подключить и проверить</button><button class="btn ghost" id="rm-off">Отключить</button><span class="small" id="rm-res"></span></div></div>';
+  h+='<div class="panel" style="display:grid;gap:14px;max-width:640px;margin-top:16px"><b class="h3">ИИ для текстов</b><p class="hint">С ключом кнопка «Сгенерировать» пишет тексты прямо в сервисе.</p><label class="field"><span>Чей ИИ использовать</span><select id="ai-prov">'+Object.keys(PROVIDERS).map(function(k){return '<option value="'+k+'"'+(a.provider===k?" selected":"")+'>'+esc(PROVIDERS[k].label)+'</option>';}).join("")+'</select></label>'+
     '<p class="hint" id="ai-help">'+esc(P.help)+'</p>'+
     '<label class="field"><span>Ключ</span><input id="ai-key" type="password" autocomplete="off" spellcheck="false" value="'+esc(a.key||"")+'" placeholder="Вставьте ключ"></label>'+
     '<label class="field"><span>Модель (можно не менять)</span><input id="ai-model" value="'+esc(a.model||"")+'" placeholder="'+esc(P.model)+'"></label>'+
     '<div class="row"><button class="btn primary" id="ai-test">Проверить ключ</button><button class="btn ghost" id="ai-clear">Удалить ключ из этого браузера</button><span class="small" id="ai-res"></span></div></div>';
-  h+='<div class="panel" style="max-width:640px;display:grid;gap:8px"><b class="h3">Что важно знать</b><ul class="gaps"><li>Ключ не попадает в файл «Сохранить всё», в скачанные лендинги и на GitHub. Никому его не отправляйте и не вставляйте в код.</li><li>Бесплатные тарифы у некоторых сервисов могут использовать присланные тексты для улучшения моделей. Интервью с участниками содержат личные данные. Если это важно, берите платный ключ или не отправляйте лишнее.</li><li>Если лимит кончился или ИИ недоступен, запрос можно перенести в чат Claude вручную: кнопка «Или вручную» у каждого блока.</li></ul></div>';
+  h+='<div class="panel" style="max-width:640px;display:grid;gap:8px;margin-top:16px"><b class="h3">Что важно знать</b><ul class="gaps"><li>Пароль команды и ключ ИИ не попадают в файл «Сохранить всё», в скачанные лендинги и на GitHub. Никому их не отправляйте и не вставляйте в код.</li><li>В таблице лежат заявки кандидатов с именами и контактами. Доступ к таблице есть только у тех, кому вы её открыли.</li><li>Бесплатные тарифы у некоторых ИИ-сервисов могут использовать присланные тексты для улучшения моделей. Интервью содержат личные данные. Если это важно, берите платный ключ.</li><li>Если ИИ недоступен, запрос можно перенести в чат Claude вручную: кнопка «Или вручную» у каждого блока.</li></ul></div>';
   view.innerHTML=h;
-  function save(){DB.settings=DB.settings||{};DB.settings.ai={provider:document.getElementById("ai-prov").value,key:document.getElementById("ai-key").value.trim(),model:document.getElementById("ai-model").value.trim()};persist();}
-  document.getElementById("ai-prov").onchange=function(){save();DB.settings.ai.model="";persist();renderAI();};
-  document.getElementById("ai-key").oninput=save;document.getElementById("ai-model").oninput=save;
+  function saveRm(){DB.settings=DB.settings||{};DB.settings.remote={url:document.getElementById("rm-url").value.trim(),token:document.getElementById("rm-token").value.trim(),who:document.getElementById("rm-who").value.trim()};persist();}
+  ["rm-url","rm-token","rm-who"].forEach(function(id){document.getElementById(id).oninput=saveRm;});
+  document.getElementById("rm-test").onclick=function(){saveRm();var r=document.getElementById("rm-res");r.className="small";r.style.color="";r.textContent="Проверяю…";
+    if(!rcfg()){r.className="err small";r.textContent="Впишите адрес (https://…/exec) и пароль.";return;}
+    api("ping").then(function(){r.style.color="var(--accent)";r.textContent="Подключено";SYNC.last=0;return pull();},function(x){r.className="err small";r.textContent=x.message;});};
+  document.getElementById("rm-off").onclick=function(){DB.settings.remote={url:"",token:"",who:""};persist();setSync("off");renderAI();toast("Общая работа отключена. Данные остались в этом браузере");};
+  function saveAi(){DB.settings=DB.settings||{};DB.settings.ai={provider:document.getElementById("ai-prov").value,key:document.getElementById("ai-key").value.trim(),model:document.getElementById("ai-model").value.trim()};persist();}
+  document.getElementById("ai-prov").onchange=function(){saveAi();DB.settings.ai.model="";persist();renderAI();};
+  document.getElementById("ai-key").oninput=saveAi;document.getElementById("ai-model").oninput=saveAi;
   document.getElementById("ai-clear").onclick=function(){DB.settings.ai={provider:document.getElementById("ai-prov").value,key:"",model:""};persist();renderAI();toast("Ключ удалён из этого браузера");};
-  document.getElementById("ai-test").onclick=function(){save();var r=document.getElementById("ai-res");r.className="small";r.textContent="Проверяю…";
-    callAI('Верни JSON {"ok":true}').then(function(t){r.className="small";r.style.color="var(--accent)";r.textContent=parseJson(t)?"Работает":"ИИ ответил, но не в формате JSON: попробуйте другую модель";},function(x){r.style.color="";r.className="err small";r.textContent=x.message;});};
+  document.getElementById("ai-test").onclick=function(){saveAi();var r=document.getElementById("ai-res");r.className="small";r.style.color="";r.textContent="Проверяю…";
+    callAI('Верни JSON {"ok":true}').then(function(t){r.style.color="var(--accent)";r.textContent=parseJson(t)?"Работает":"ИИ ответил, но не в формате JSON: попробуйте другую модель";},function(x){r.className="err small";r.textContent=x.message;});};
 }
+
 /* ================= Роутинг ================= */
 function hash(){return (location.hash||"").replace(/^#/,"")||"invites";}
 function go(h){if(location.hash==="#"+h)route();else location.hash=h;}
@@ -281,10 +404,12 @@ function route(){
   closeOverlay();BR={};
   if(h==="new")renderCreate();
   else if(h==="club")openClub();
+  else if(h==="leads"){S.ed=null;renderLeads();}
   else if(h==="ai"||h==="settings"){S.ed=null;renderAI();}
   else if(h.indexOf("edit-")===0)openEditor(decodeURIComponent(h.slice(5)));
   else{S.ed=null;renderInvites();}
   window.scrollTo(0,0);
+  if(rcfg()&&!SYNC.pulling&&Date.now()-SYNC.last>10000&&h!=="new"&&h!=="ai")pull();
 }
 window.addEventListener("hashchange",route);
 
@@ -306,6 +431,7 @@ function renderInvites(){
   });
   h+='</div>';
   if(!ls.length&&(q||S.filter!=="all"))h+='<div class="empty">Ничего не нашлось.</div>';
+  h+=activityPanel();
   view.innerHTML=h;
   var qi=document.getElementById("q");qi.oninput=function(){S.q=qi.value;var p=qi.selectionStart;renderInvites();var n=document.getElementById("q");n.focus();n.setSelectionRange(p,p);};
   view.querySelectorAll("[data-f]").forEach(function(b){b.onclick=function(){S.filter=b.dataset.f;renderInvites();};});
@@ -362,7 +488,7 @@ function finishCreate(p,t){
   var doc={slug:slugify(name),name:name,nameGenitive:p.nameGenitive||name,signoff:p.signoff||String(name).split(" ")[0],role:t.role||p.role||"",photo:cr.photo||"",photoIsPortrait:true,status:"draft",
     blocks:blocks,messenger:t.messenger||"",review:{facts:facts,gaps:gaps},profile:p,source:String(cr.text||"").slice(0,40000),fileName:cr.file||"",createdAt:now,updatedAt:now};
   if(cr.demo){doc.demo=true;doc.review.gaps.unshift("Это вымышленный пример для показа. Удалите его перед настоящей работой");}
-  DB.docs[doc.slug]=doc;persist();S.create=null;toast("Приглашение готово. Проверьте его");go("edit-"+doc.slug);
+  doc.dirty=true;DB.docs[doc.slug]=doc;persist();S.create=null;if(rcfg())pushDoc(doc);toast("Приглашение готово. Проверьте его");go("edit-"+doc.slug);
 }
 
 /* ================= Редактор ================= */
@@ -388,7 +514,7 @@ function renderEditor(){
     var hc='<div class="edbar"><div class="who"><div style="min-width:0"><h1>Общие блоки клуба</h1><p class="saved" id="saveState"><span class="d"></span><span>'+(canStore?"Сохранено в браузере":"Не забудьте сохранить в файл")+'</span></p></div></div></div>';
     hc+='<div class="banner">'+ic("info")+'<div class="grow"><b>Эти блоки одинаковые во всех приглашениях</b><span>Поправьте текст, фото или афишу здесь один раз. Изменения сразу появятся во всех приглашениях; уже скачанные лендинги нужно скачать заново. Вместо «Имя Фамилия» на странице встанет имя участника.</span></div><button class="btn sm ghost" data-c="clubreset">Вернуть исходные</button></div>';
     if(E.resetAsk)hc+='<div class="banner err">'+ic("refresh")+'<div class="grow"><b>Вернуть общие блоки к исходным?</b><span>Ваши правки в разделе «Клуб» пропадут.</span></div><div class="row"><button class="btn sm" data-c="resetno">Отмена</button><button class="btn sm primary" data-c="resetyes">Вернуть</button></div></div>';
-    hc+=storeBanner()+'<div class="ed-cols"><div style="display:grid;gap:16px;min-width:0" id="edl"><div class="blocks">';
+    hc+=storeBanner()+clubConflictBanner()+'<div class="ed-cols"><div style="display:grid;gap:16px;min-width:0" id="edl"><div class="blocks">';
     d.blocks.forEach(function(b,i){hc+=blockCard(b,i,d.blocks.length);});
     hc+='</div></div>'+previewCol()+'</div>';
     var pv0=document.getElementById("pvs"),keep0=pv0?pv0.scrollTop:0;
@@ -398,9 +524,9 @@ function renderEditor(){
     '<div class="row"><div class="seg status" role="group" aria-label="Статус"><button data-st="draft" aria-pressed="'+(d.status!=="approved")+'">Черновик</button><button data-st="approved" aria-pressed="'+(d.status==="approved")+'">'+ic("check")+'Согласовано</button></div>'+
     '<button class="btn primary" id="dlBtn">'+ic("download")+'Скачать лендинг</button>'+
     '<div class="menu"><button class="icon" id="menuBtn" aria-label="Ещё" aria-expanded="'+E.menu+'">'+ic("more")+'</button>'+(E.menu?'<div class="menu-pop"><button data-m="preview">'+ic("eye")+'Посмотреть как кандидат</button><button data-m="msg">'+ic("msg")+'Текст для мессенджера</button><button data-m="json">'+ic("download")+'Сохранить это приглашение в файл</button><button data-m="danger" class="danger">'+ic("trash")+'Удалить приглашение</button></div>':'')+'</div></div></div>';
-  if(E.share)h+='<div class="share"><div class="row" style="justify-content:space-between"><b class="h3">Текст для Telegram или WhatsApp</b><button class="icon" data-c="shareclose" aria-label="Закрыть">✕</button></div><p class="hint">Коннектор отправит его сам. Вместо {ссылка} подставьте адрес страницы, когда разместите её на сайте.</p><div class="field"><textarea readonly rows="4">'+esc(msgText(d))+'</textarea></div><div class="row"><button class="btn sm" data-c="copymsg">'+ic("copy")+'Скопировать</button></div></div>';
+  if(E.share)h+='<div class="share"><div class="row" style="justify-content:space-between"><b class="h3">Текст для Telegram или WhatsApp</b><button class="icon" data-c="shareclose" aria-label="Закрыть">✕</button></div><p class="hint">Коннектор отправит его сам.'+(inviteLink(d)?' Ссылка уже вставлена: '+(d.status==='approved'?'она открывается у любого, у кого есть адрес.':'она заработает после статуса «Согласовано».'):' Вместо {ссылка} подставьте адрес страницы. Подключите общее хранилище в разделе «Подключения», и ссылка появится сама.')+'</p><div class="field"><textarea readonly rows="4">'+esc(msgText(d))+'</textarea></div><div class="row"><button class="btn sm" data-c="copymsg">'+ic("copy")+'Скопировать</button></div></div>';
   if(E.delAsk)h+='<div class="banner err">'+ic("trash")+'<div class="grow"><b>Удалить приглашение '+esc(d.nameGenitive||d.name)+'?</b><span>Оно пропадёт из этого браузера. Если нужно, сначала сохраните его в файл.</span></div><div class="row"><button class="btn sm" data-c="delno">Отмена</button><button class="btn sm primary" data-c="delyes">Удалить</button></div></div>';
-  h+=storeBanner();
+  h+=storeBanner()+conflictBanner(d);
   h+='<div class="ed-cols"><div style="display:grid;gap:16px;min-width:0" id="edl">';
   h+='<div class="tabs" role="tablist"><button role="tab" data-tab="blocks" aria-selected="'+(E.tab==="blocks")+'">Блоки</button><button role="tab" data-tab="check" aria-selected="'+(E.tab==="check")+'">Проверка'+(gaps.length?'<span class="cnt">'+gaps.length+'</span>':'')+'</button><button role="tab" data-tab="settings" aria-selected="'+(E.tab==="settings")+'">Настройки</button></div>';
   if(E.tab==="blocks"){h+='<div class="blocks">';d.blocks.forEach(function(b,i){h+=blockCard(b,i,d.blocks.length);});h+='</div>';h+=E.add?addPanel():'<div class="addbar"><button class="btn" id="addOpen">'+ic("plus")+'Добавить блок</button></div>';}
@@ -497,7 +623,8 @@ function paintPreview(){var E=S.ed,pv=document.getElementById("pv");if(!E||!pv)r
 function findB(id){var bs=S.ed.doc.blocks;for(var i=0;i<bs.length;i++)if(bs[i].id===id)return i;return -1;}
 function changed(full){
   var E=S.ed;E.doc.updatedAt=new Date().toISOString();clearTimeout(E.timer);
-  if(E.club){E.doc.blocks.forEach(function(b){DB.club[b.type]=b.data;});DB.clubUpdatedAt=E.doc.updatedAt;}
+  if(E.club){E.doc.blocks.forEach(function(b){DB.club[b.type]=b.data;});DB.clubUpdatedAt=E.doc.updatedAt;DB.clubDirty=true;if(rcfg())scheduleClub();}
+  else{E.doc.dirty=true;if(rcfg())schedulePush(E.doc);}
   E.timer=setTimeout(function(){var ok=persist();var el=document.getElementById("saveState");if(el)el.lastChild.textContent=ok?"Сохранено в браузере":"Не сохранилось: сохраните в файл";},500);
   if(full)renderEditor();else{clearTimeout(E.pt);E.pt=setTimeout(paintPreview,180);}
 }
@@ -518,7 +645,7 @@ function bindEditor(){
     if(c==="shareclose"){E.share=false;renderEditor();}else if(c==="copymsg")copy(msgText(d),"Текст скопирован");
     else if(c==="delno"){E.delAsk=false;renderEditor();}
     else if(c==="clubreset"){E.resetAsk=true;renderEditor();}else if(c==="resetno"){E.resetAsk=false;renderEditor();}
-    else if(c==="resetyes"){DB.club=clubFromSeed();DB.clubVersion=CLUB_SEED.version||1;persist();S.ed=null;openClub();toast("Общие блоки возвращены к исходным");}else if(c==="delyes"){delete DB.docs[d.slug];persist();S.ed=null;toast("Приглашение удалено");go("invites");}};});
+    else if(c==="resetyes"){DB.club=clubFromSeed();DB.clubVersion=CLUB_SEED.version||1;DB.clubDirty=true;DB.clubUpdatedAt=new Date().toISOString();persist();if(rcfg())scheduleClub();S.ed=null;openClub();toast("Общие блоки возвращены к исходным");}else if(c==="delyes"){var wasRemote=d.rev&&rcfg();delete DB.docs[d.slug];persist();S.ed=null;if(wasRemote)api("delete",{slug:d.slug}).catch(function(x){toast("Удалено у вас, но не в хранилище: "+x.message);});toast("Приглашение удалено");go("invites");}};});
   if(E.menu)setTimeout(function(){document.addEventListener("click",function(){if(S.ed===E&&E.menu){E.menu=false;renderEditor();}},{once:true});},0);
   document.getElementById("pv").addEventListener("click",function(e){
     var s=e.target.closest("[data-bid]");if(!s||e.target.closest("form,summary,a,button,input,textarea"))return;
@@ -578,12 +705,18 @@ document.getElementById("exportAll").onclick=function(e){e.preventDefault();down
 document.getElementById("importAll").onclick=function(e){e.preventDefault();document.getElementById("importFile").click();};
 document.getElementById("importFile").onchange=function(e){var f=e.target.files[0];if(!f)return;f.text().then(function(t){
   var j=JSON.parse(t),list=j.docs?Object.keys(j.docs).map(function(k){return j.docs[k];}):[j],n=0;
-  list.forEach(function(d){if(d&&d.slug&&d.name&&Array.isArray(d.blocks)){DB.docs[d.slug]=d;n++;}});
-  if(j.club&&typeof j.club==="object"){DB.club=Object.assign(clubFromSeed(),j.club);DB.clubVersion=j.clubVersion||DB.clubVersion;n=n||1;}
+  list.forEach(function(d){if(d&&d.slug&&d.name&&Array.isArray(d.blocks)){delete d.rev;d.dirty=true;DB.docs[d.slug]=d;n++;}});
+  if(j.club&&typeof j.club==="object"){DB.club=Object.assign(clubFromSeed(),j.club);DB.clubVersion=j.clubVersion||DB.clubVersion;DB.clubRev=0;DB.clubDirty=true;n=n||1;}
+  SYNC.last=0;
   if(!n)throw new Error("empty");S.ed=null;persist();toast("Открыто приглашений: "+n);go("invites");
 }).catch(function(){toast("Это не файл приглашений Noôdome");});e.target.value="";};
 
-window.NDApp={DB:DB,callAI:callAI,aiCfg:aiCfg,withClub:withClub,standalone:function(s){return standalone(DB.docs[s]);},createPrompt:createPrompt};
+window.NDApp={DB:DB,sync:{api:api,pull:pull,pushDoc:pushDoc,pushClub:pushClub,rcfg:rcfg,SYNC:SYNC,inviteLink:inviteLink},callAI:callAI,aiCfg:aiCfg,withClub:withClub,standalone:function(s){return standalone(DB.docs[s]);},createPrompt:createPrompt};
+/* Адрес хранилища может лежать в config.json рядом с сервисом: тогда сотруднику нужен только пароль. */
+if(/^https?:$/.test(location.protocol))fetch("config.json",{cache:"no-store"}).then(function(r){return r.json();}).then(function(c){
+  if(c&&/^https:\/\//.test(c.backend||"")&&!remoteUrl()){DB.settings=DB.settings||{};DB.settings.remote={url:c.backend,token:"",who:""};persist();if(hash()==="ai")renderAI();}
+}).catch(function(){});
+setInterval(function(){if(rcfg()&&!document.hidden&&(hash()==="invites"||hash()==="leads")&&!SYNC.pulling)pull();},45000);
 route();
 })();
 </script>

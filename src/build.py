@@ -1,4 +1,4 @@
-"""Собирает index.html (сервис приглашений одним файлом) из файлов в папке src.
+"""Собирает index.html (сервис) и p.html (страница-приглашение по ссылке) из файлов в папке src.
 Запуск из корня репозитория:  python3 src/build.py
 Нужен только Python 3, без установки пакетов."""
 import json, pathlib
@@ -20,4 +20,8 @@ out = ((src / "editor.src.html").read_text(encoding="utf-8")
        .replace("/*@CLUB@*/", safe(club)))
 assert "/*@" not in out and "\u2028" not in out
 (root / "index.html").write_text(out, encoding="utf-8")
+viewer = (src / "viewer.src.html").read_text(encoding="utf-8").replace("/*@LANDING@*/", landing)
+assert "/*@" not in viewer
+(root / "p.html").write_text(viewer, encoding="utf-8")
+print("p.html собран,", len(viewer.encode()) // 1024, "КБ")
 print("index.html собран,", len(out.encode()) // 1024, "КБ")
