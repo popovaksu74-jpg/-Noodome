@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Noôdome · Приглашения</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Inter:wght@300;400;500;600&display=swap">
+<style>
+/*@CSS@*/
+.steps{counter-reset:s;display:grid;gap:14px;margin:0;padding:0;list-style:none}
+.steps>li{display:grid;gap:10px;padding:18px 20px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+.steps>li>b{display:flex;gap:12px;align-items:center;font-weight:500}
+.steps>li>b::before{counter-increment:s;content:counter(s);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font:400 16px/1 var(--serif);font-variant-numeric:lining-nums;flex:none}
+.steps>li.done>b::before{content:"✓";font-family:var(--sans);font-size:13px}
+.bridge{display:grid;gap:10px}
+.bridge textarea{width:100%;min-height:110px;padding:10px 12px;border-radius:10px;border:1px solid var(--line2);background:var(--surface);font:12px/1.5 ui-monospace,Menlo,monospace;resize:vertical}
+.inv .ph{width:52px;height:52px;border-radius:50%;object-fit:cover;object-position:50% 18%;flex:none}
+.hint{font-size:13px;color:var(--ink2)}
+.locked{display:grid;gap:10px;padding:14px 16px;border-radius:12px;background:var(--surface2,var(--surface));border:1px dashed var(--line2);font-size:14px;color:var(--ink2)}
+.iph{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.iph img{width:56px;height:56px;object-fit:cover;border-radius:8px;flex:none}
+.tag-shared{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:20px;font:500 11px/18px var(--sans);background:var(--accent-soft,rgba(87,108,74,.14));color:var(--accent);vertical-align:1px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <a class="logo" href="#invites">
+      <svg viewBox="0 0 70.06 20" aria-hidden="true"><path class="dome" d="M70.05 20C62.54 8.06 49.61 0 35.03 0 20.29 0 7.52 7.91 0 20h70.05Z"/></svg>
+      <span><b>Noôdome</b><small>Приглашения</small></span>
+    </a>
+    <nav class="nav" aria-label="Разделы">
+      <a href="#invites" data-nav="invites"><svg class="i"><use href="#i-users"/></svg><span class="label">Приглашения</span></a>
+      <a href="#new" data-nav="new"><svg class="i"><use href="#i-plus"/></svg><span class="label">Новое</span></a>
+      <a href="#club" data-nav="club"><svg class="i"><use href="#i-folder"/></svg><span class="label">Клуб: общие блоки</span></a>
+    </nav>
+    <div class="side-foot">
+      <a href="#" id="exportAll"><svg class="i"><use href="#i-download"/></svg>Сохранить всё в файл</a>
+      <a href="#" id="importAll"><svg class="i"><use href="#i-upload"/></svg>Открыть файл</a>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+      <div class="me">Работает в браузере, без сервера</div>
+    </div>
+  </aside>
+  <main class="main"><div class="wrap" id="view"></div></main>
+</div>
+<div class="overlay" id="overlay" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<!--@ICONS@-->
+<script id="ndl-src">
+/*@LANDING@*/
+</script>
+<script id="seed" type="application/json">/*@SEED@*/</script>
+<script id="club-seed" type="application/json">/*@CLUB@*/</script>
+<script>
+(function(){
+"use strict";
+var NDL=window.NDL,esc=NDL.esc,TYPES=NDL.TYPES,SHARED=NDL.SHARED;
+var LANDING_SRC=document.getElementById("ndl-src").textContent;
+var SEED=JSON.parse(document.getElementById("seed").textContent);
+var CLUB_SEED=JSON.parse(document.getElementById("club-seed").textContent);
+var styleEl=document.createElement("style");styleEl.textContent=NDL.css;document.head.appendChild(styleEl);
+
+/* ================= Хранилище: в браузере + файл ================= */
+var KEY="noodome-invites-v1",canStore=true,DB=null;
+try{var raw=localStorage.getItem(KEY);if(raw)DB=JSON.parse(raw);}catch(e){canStore=false;}
+if(!DB||!DB.docs)DB={docs:{}};
+/* Пример (Михаил) обновляется вместе с сервисом, если его не правили после прошлой версии. */
+var oldSeed=DB.docs[SEED.slug];
+if(!Object.keys(DB.docs).length||(oldSeed&&(oldSeed.seedVersion||1)<(SEED.seedVersion||1)))DB.docs[SEED.slug]=SEED;
+/* Общие блоки клуба: при первом запуске и когда в сервис приходит новая версия общих блоков. */
+if(!DB.club||(DB.clubVersion||0)<(CLUB_SEED.version||1)){DB.club=clubFromSeed();DB.clubVersion=CLUB_SEED.version||1;}
+persist();
+function clubFromSeed(){var o={};SHARED.forEach(function(k){o[k]=CLUB_SEED[k]?clone(CLUB_SEED[k]):TYPES[k].make();});return o;}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(DB));canStore=true;return true;}catch(e){canStore=false;return false;}}
+function docs(){return Object.keys(DB.docs).map(function(k){return DB.docs[k];});}
+function withClub(d){return Object.assign({},d,{club:DB.club});}
+
+/* ================= Знания для Claude ================= */
+var KNOW={
+  communities:"Тематические сообщества: Шахматный клуб; Клуб игры го; Мафия; Про образование; Партнёрства и преемственность; Я и благотворительность; Развитие территорий; Культурный код; ESG; Kids & Family; Champagne Lovers; Lost in Translation (международная среда); NoôSailing; NoôFreediving; Music Lovers; Noôtravel (путешествия: Армения, Япония, Байкал, Бутан, Узбекистан); Важно! Не срочно; Люди. Организации. Лидеры; Well-Being Community; Семья и традиции; Книжный клуб Knigôdome; Попробуй спорт!; Психология бизнеса; Визионерство и новаторство; Talents; Третий звонок (театр).\nЛаборатории Noôlab: Бизнес и технологии; Креативные индустрии; Архитекторы будущего; Nextgen; Искусство и эстетика.\nФорматы: дискуссии, эногастрономические вечера, совместные путешествия, перформансы и концерты, кинопоказы, семейная программа, ежегодный круиз Noôboat, деловые завтраки.\nМеста: терраса «Тимирязев» с видом на Кремль, терраса «Романов», ресторан Noôcafe, амфитеатр, кинозал, библиотека, студии для встреч, сады Noôgarden.",
+  tone:"Тон Noôdome: про людей и смыслы, а не про статус и сервис. Спокойная уверенность: без превосходных степеней, восклицательных знаков, срочности. На «вы» со строчной. Конкретные детали вместо общих слов.\nГоворим: сообщество, участники, единомышленники, неслучайные встречи, рекомендация, встреча-знакомство, делиться, вместе, проекты.\nНе говорим: элитный, VIP, премиум, эксклюзивное предложение, успейте, нетворкинг, полезные связи, статус, престиж, клиенты, прокачать.\nТексты от первого лица пишет человек, а не клуб: своя интонация, его собственные слова там, где возможно. Без перечня привилегий и цен.",
+  club:"Noôdome — сообщество единомышленников и клубное пространство в центре Москвы (Романов переулок, 2), основано в 2020 году Рубеном Варданяном и Вероникой Зонабенд. Около 1000 участников, 26 амбассадоров, 800+ событий в год, 4000 м², три террасы. Ценности: доверие, интеграция разнообразия, социальная ответственность, преемственность, постоянное самообразование. Вступление: рекомендация участника → встреча-знакомство в пространстве и анкета → решение адмиссионного комитета → приглашение. Взносы вносятся только после решения комитета. Есть семейная программа, молодёжные условия для 18–29 лет."
+};
+var ANSWER="\n\nОтветь одним сообщением: только JSON, без пояснений до и после, без артефактов и файлов.";
+var RULES="ПРАВИЛА ИЗВЛЕЧЕНИЯ\n1. Ничего не выдумывай. Каждое утверждение опирается на материалы. Нет данных — оставь поле пустым и добавь вопрос в gaps.\n2. Цитаты только дословные, без правок. Пересказ помечай как пересказ.\n3. Выбери 2–3 главные вещи о человеке: почему ему важен клуб и чем он интересен другим. Остальное перечисли в omit с причиной.\n4. Не выноси на страницу: финансы и выручку, здоровье, подробности о близких сверх нужного, политику, всё, что может смутить человека при публикации.\n5. Сопоставь темы человека с сообществами клуба из списка. Это вывод, помечай его как вывод.\n6. Пиши по-русски, коротко и конкретно.";
+var TYPE_HINT={hero:"Имя и приглашение на однотонном фоне",why:"Один абзац и фото участника в клубе",letter:"Обращение от первого лица",list:"Темы, сообщества, причины",story:"Проект с фото и ссылкой",quote:"Яркая фраза человека",text:"Свободный текст",photo:"Снимок с подписью",figures:"Клуб в цифрах",faq:"Ответы на частые вопросы",
+  about:"Общий блок: текст и фото с сайта",community:"Общий блок: цифры и амбассадоры",events:"Общий блок: афиша",steps:"Общий блок: путь от заявки до клуба",apply:"Общий блок: форма для кандидата"};
+function blockSpec(){
+  return Object.keys(TYPES).filter(function(k){return !TYPES[k].shared&&k!=="hero";}).map(function(k){
+    var t=TYPES[k],f=t.fields.map(function(x){return x[0];}),it=t.items?" items:[{"+t.items.map(function(x){return x[0];}).join(", ")+"}]":"";
+    return "- "+k+" ("+t.label+"): "+f.join(", ")+it;
+  }).join("\n")+"\nПоля text и paragraphs — строка, абзацы через пустую строку. photo не заполняй.";
+}
+function createPrompt(src){
+  return "Ты помогаешь команде клуба Noôdome готовить именные лендинги-приглашения от участников клуба (их называют Коннекторами). Лендинг читается на телефоне как личное приглашение от участника, а не как реклама. От участника к участнику меняются только три блока: «Для меня Noôdome», «Что мне здесь близко» и «Мой проект с Noôdome». Остальное (о клубе, сообщество, афиша, шаги, форма) общее, его писать не нужно. Материалы об участнике ниже: интервью, анкета, заметки или переписка.\n\nСделай два шага.\n\nШАГ 1. Извлеки профиль участника.\n"+RULES+
+  "\n\nШАГ 2. По профилю напиши тексты от его лица.\n"+KNOW.tone+
+  "\n- why: ОДИН абзац, 4–6 предложений от первого лица: что для него Noôdome и почему он здесь. Если в материалах он сам говорит о клубе, бери его слова почти дословно, только сокращай. Если не говорит — напиши по его ценностям и добавь вопрос в gaps.\n- mine: 2–3 пункта «что мне здесь близко». Если он сам называет любимое в клубе — пиши об этом. Если нет — пиши о его темах и честно добавляй «В клубе есть сообщество …», не утверждая, что он туда ходит.\n- story: его проект, связанный с Noôdome (сделан вместе с участниками клуба, вырос из встречи в клубе или о нём рассказывал клуб). Если такого нет — null. text: 2 коротких абзаца от первого лица, как он сам рассказал бы другу: что это, как появилось, что получилось. Никаких казённых оборотов вроде «клуб рассказывает о нём», «стал соорганизатором». quote: его дословная фраза о проекте или клубе, если есть. linkUrl: ссылка на страницу проекта, если она есть в материалах.\n- messenger: 2–3 предложения для Telegram от первого лица, в конце {ссылка}.\n- Никаких цен, привилегий и эксклюзивности.\n\nКЛУБ (только эти факты)\n"+KNOW.club+"\n\n"+KNOW.communities+
+  "\n\nМАТЕРИАЛЫ\n\"\"\"\n"+String(src).slice(0,60000)+"\n\"\"\"\n\n"+
+  'Формат ответа:\n{"profile":{"name":"Имя Фамилия","nameGenitive":"Имени Фамилии","signoff":"имя для подписи","role":"одна строка: кто он","since":"","themes":[""],"whyClub":{"text":"","kind":"цитата|пересказ|нет данных"},"credo":{"text":"","kind":"цитата|пересказ|нет данных"},"clubLove":[""],"clubMatches":[{"community":"","why":""}],"projects":[{"title":"","text":""}],"facts":[{"field":"","source":"цитата / пересказ / вывод и откуда"}],"gaps":["вопросы участнику"],"omit":["что не берём и почему"]},'+
+  '"texts":{"why":"","role":"","mine":{"title":"Что мне здесь близко","intro":"","items":[{"label":"","text":""}]},"story":{"label":"Мой проект с Noôdome","title":"","text":"","quote":"","linkUrl":""},"messenger":"","facts":[{"field":"","source":""}]}}'+ANSWER;
+}
+function context(doc){
+  return "УЧАСТНИК: "+doc.name+" ("+(doc.role||"")+")\nПРОФИЛЬ\n"+JSON.stringify(doc.profile||{},null,1)+(doc.source?"\n\nИСХОДНЫЕ МАТЕРИАЛЫ\n\"\"\"\n"+doc.source.slice(0,30000)+"\n\"\"\"":"")+
+  "\n\nСЕЙЧАС НА СТРАНИЦЕ\n"+(doc.blocks||[]).map(function(b,i){var t=TYPES[b.type]||{};return (i+1)+". "+(t.label||b.type)+(t.shared?" (общий блок клуба)":"")+": "+summary(b);}).join("\n");
+}
+function newBlockPrompt(desc,doc){
+  return "Добавь новый блок на именной лендинг-приглашение в клуб Noôdome. Блок должен продолжать страницу, а не повторять то, что уже есть.\n\nЗАПРОС КОМАНДЫ: "+desc+"\n\n"+KNOW.tone+"\n\nКЛУБ\n"+KNOW.club+"\n\n"+KNOW.communities+"\n\n"+context(doc)+
+  "\n\nТИПЫ БЛОКОВ И ИХ ПОЛЯ\n"+blockSpec()+"\n\nПРАВИЛА\n- Выбери самый подходящий тип.\n- Факты о человеке бери только из профиля и материалов, факты о клубе только из раздела КЛУБ.\n- Если для запроса не хватает фактов, верни {\"error\":\"чего не хватает\"}.\n- Пиши коротко: заголовок до 8 слов, пункт до 3 предложений.\n\nФормат ответа: {\"type\":\"\",\"data\":{...}}"+ANSWER;
+}
+function rewritePrompt(b,instr,doc){
+  var t=TYPES[b.type],d=JSON.parse(JSON.stringify(b.data||{}));delete d.photo;(d.items||[]).forEach(function(x){if(x)delete x.photo;});
+  return "Перепиши один блок именного лендинга-приглашения в клуб Noôdome.\n\nЗАДАЧА: "+instr+"\n\n"+KNOW.tone+"\n\nКЛУБ\n"+KNOW.club+"\n\n"+context(doc)+
+  "\n\nБЛОК («"+t.label+"», тип "+b.type+")\n"+JSON.stringify(d,null,1)+
+  "\n\nПРАВИЛА\n- Сохрани тип и набор полей. Поле photo не возвращай. Плейсхолдеры {name}, {nameGenitive}, {signoff} можно оставлять.\n- Факты о человеке только из профиля и материалов.\n\nФормат ответа: {\"data\":{...}}"+ANSWER;
+}
+function parseJson(text){
+  var t=String(text||"").trim().replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/,"");
+  try{return JSON.parse(t);}catch(e){}
+  var a=t.indexOf("{"),b=t.lastIndexOf("}");if(a<0||b<=a)return null;
+  try{return JSON.parse(t.slice(a,b+1));}catch(e){return null;}
+}
+
+/* ================= Утилиты ================= */
+var S={q:"",filter:"all",ed:null,create:null};
+var view=document.getElementById("view");
+function ic(n){return '<svg class="i"><use href="#i-'+n+'"/></svg>';}
+function toast(t){var el=document.getElementById("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){el.hidden=true;},3200);}
+function clone(o){return JSON.parse(JSON.stringify(o));}
+function arr(v){return Array.isArray(v)?v:v?[v]:[];}
+function copy(text,msg){function fb(){var ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();var ok=false;try{ok=document.execCommand("copy");}catch(e){}document.body.removeChild(ta);toast(ok?(msg||"Скопировано"):"Не удалось скопировать");}
+  try{navigator.clipboard.writeText(text).then(function(){toast(msg||"Скопировано");},fb);}catch(e){fb();}}
+function pill(s){return s==="approved"?'<span class="pill approved">Согласовано</span>':'<span class="pill draft">Черновик</span>';}
+function initials(n){return String(n||"?").trim().split(/\s+/).slice(0,2).map(function(w){return w.charAt(0);}).join("").toUpperCase();}
+function when(iso){if(!iso)return "";var d=new Date(iso);if(isNaN(d))return "";var now=new Date(),diff=(now-d)/1000;if(diff<60)return "только что";if(diff<3600)return Math.floor(diff/60)+" мин назад";if(d.toDateString()===now.toDateString())return "сегодня в "+d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});return d.toLocaleDateString("ru-RU",{day:"numeric",month:"short"});}
+function summary(b){var d=NDL.dataOf(b,{club:DB.club})||{};var s=b.type==="why"?(d.text||d.title):(d.title||d.quote||d.text||d.greeting||d.caption||(d.items&&d.items[0]&&(d.items[0].label||d.items[0].q||d.items[0].title))||"");s=Array.isArray(s)?s.join(" "):String(s);return s.replace(/\s+/g," ").slice(0,80);}
+function resizePhoto(file,max){return new Promise(function(res,rej){var img=new Image();img.onload=function(){var s=Math.min(1,(max||720)/Math.max(img.width,img.height));var cv=document.createElement("canvas");cv.width=Math.round(img.width*s);cv.height=Math.round(img.height*s);cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);URL.revokeObjectURL(img.src);res(cv.toDataURL("image/jpeg",0.82));};img.onerror=rej;img.src=URL.createObjectURL(file);});}
+function slugify(s){var m={а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"e",ж:"zh",з:"z",и:"i",й:"y",к:"k",л:"l",м:"m",н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",ф:"f",х:"kh",ц:"ts",ч:"ch",ш:"sh",щ:"sch",ъ:"",ы:"y",ь:"",э:"e",ю:"yu",я:"ya"};
+  var o=String(s||"").toLowerCase().split("").map(function(c){return m[c]!=null?m[c]:c;}).join("").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60)||"connector";
+  var base=o,i=2;while(DB.docs[o]){o=base+"-"+i;i++;}return o;}
+function download(name,text,type){var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type:type||"text/plain"}));a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1500);}
+function jsonSafe(v){return JSON.stringify(v).replace(/</g,"\\u003c").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029");}
+function msgText(d){return String(d.messenger||"Здравствуйте! Хочу пригласить вас в Noôdome, это сообщество, в котором я давно. Вот моё личное приглашение: {ссылка}");}
+
+/* ================= Мостик к обычному чату Claude ================= */
+/* Запрос копируется в буфер, его вставляют в claude.ai, ответ вставляют обратно. API не нужен. */
+var BR={};
+function bridge(id,label,getPrompt,apply){
+  BR[id]={get:getPrompt,apply:apply};
+  return '<div class="ai bridge"><span class="lbl">'+ic("spark")+esc(label)+'</span>'+
+    '<div class="row"><button class="btn sm primary" data-bcopy="'+id+'">'+ic("copy")+'1. Скопировать запрос</button><a class="btn sm" href="https://claude.ai/new" target="_blank" rel="noopener">'+ic("ext")+'2. Открыть Claude</a></div>'+
+    '<textarea data-bans="'+id+'" placeholder="3. Вставьте сюда ответ Claude целиком" aria-label="Ответ Claude"></textarea>'+
+    '<div class="row"><button class="btn sm dark" data-bapply="'+id+'">4. Применить</button><span class="err small" data-berr="'+id+'"></span></div></div>';
+}
+document.addEventListener("click",function(e){
+  var c=e.target.closest("[data-bcopy]");
+  if(c){var p=BR[c.dataset.bcopy].get();if(p)copy(p,"Запрос скопирован. Вставьте его в Claude и отправьте");return;}
+  var a=e.target.closest("[data-bapply]");
+  if(a){var id=a.dataset.bapply,ta=document.querySelector('[data-bans="'+id+'"]'),er=document.querySelector('[data-berr="'+id+'"]');
+    var j=parseJson(ta&&ta.value);if(!j){er.textContent="Не похоже на ответ Claude. Скопируйте его ответ целиком.";return;}
+    try{var m=BR[id].apply(j);if(m)er.textContent=m;}catch(x){er.textContent=x.message||"Не получилось применить ответ.";}}
+});
+
+/* ================= Чтение файлов ================= */
+var scripts={};
+function loadScript(src){if(!scripts[src])scripts[src]=new Promise(function(res,rej){var s=document.createElement("script");s.src=src;s.onload=res;s.onerror=function(){delete scripts[src];rej(new Error("script"));};document.head.appendChild(s);});return scripts[src];}
+function decodeXml(s){return s.replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&");}
+function readFile(f){
+  var n=f.name.toLowerCase();
+  if(/\.docx$/.test(n))return loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js").then(function(){return f.arrayBuffer();}).then(function(b){return window.JSZip.loadAsync(b);}).then(function(z){var x=z.file("word/document.xml");if(!x)throw new Error("docx");return x.async("string");}).then(function(x){
+    return decodeXml(x.replace(/<w:tab\/>/g,"\t").replace(/<w:br[^>]*\/>/g,"\n").replace(/<\/w:p>/g,"\n").replace(/<[^>]+>/g,"")).replace(/\n{3,}/g,"\n\n").trim();});
+  if(/\.pdf$/.test(n))return loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js").then(function(){
+    var lib=window.pdfjsLib;lib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    return f.arrayBuffer().then(function(b){return lib.getDocument({data:new Uint8Array(b),isEvalSupported:false}).promise;}).then(function(pdf){
+      var ps=[];for(var i=1;i<=Math.min(pdf.numPages,60);i++)ps.push(pdf.getPage(i).then(function(p){return p.getTextContent();}).then(function(tc){var out="",y=null;tc.items.forEach(function(it){var ny=it.transform[5];if(y!==null&&Math.abs(ny-y)>2)out+="\n";out+=it.str;y=ny;});return out;}));
+      return Promise.all(ps).then(function(a){return a.join("\n\n").trim();});});});
+  if(/\.rtf$/.test(n))return f.text().then(function(t){return t.replace(/\\par[d]?/g,"\n").replace(/\{\\\*[^{}]*\}|\\[a-z]+-?\d* ?|[{}]/g,"").trim();});
+  if(/\.html?$/.test(n))return f.text().then(function(t){var d=new DOMParser().parseFromString(t,"text/html");return (d.body?d.body.textContent:"").replace(/\n\s*\n\s*\n+/g,"\n\n").trim();});
+  if(/\.(doc|pages|odt)$/.test(n))return Promise.reject(new Error("format"));
+  return f.text();
+}
+
+/* ================= Готовый лендинг одним файлом ================= */
+function endpoint(){var u=String((DB.settings||{}).endpoint||"").trim();return /^https:\/\//.test(u)?u:"";}
+function publicDoc(doc){
+  var o={};["slug","name","nameGenitive","signoff","role","photo","photoIsPortrait","blocks"].forEach(function(k){if(doc[k]!==undefined)o[k]=doc[k];});
+  /* В файл кладём только те общие блоки, что стоят на странице. */
+  var cl={};(o.blocks||[]).forEach(function(b){if((TYPES[b.type]||{}).shared&&DB.club[b.type])cl[b.type]=DB.club[b.type];});o.club=cl;
+  /* Фото участника нужно только блоку «Для меня Noôdome» без своего фото. */
+  if(!(o.blocks||[]).some(function(b){return b.type==="why"&&!(b.data||{}).photo;}))delete o.photo;
+  return o;
+}
+function firstText(doc){var w=(doc.blocks||[]).filter(function(b){return b.type==="why";})[0];var t=NDL.paras(w&&w.data&&w.data.text)[0]||"";var m=t.match(/^.{20,180}?[.!?…](\s|$)/);return (m?m[0]:t.slice(0,180)).trim();}
+function standalone(doc){
+  var pub=publicDoc(doc);
+  var title=pub.name+" приглашает вас познакомиться с Noôdome",desc=firstText(pub)?"«"+NDL.sub(firstText(pub),pub)+"»":"Личное приглашение в Noôdome";
+  return '<!doctype html>\n<html lang="ru">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<meta name="robots" content="noindex">\n<title>'+esc(title)+'</title>\n<meta name="description" content="'+esc(desc)+'">\n<meta property="og:title" content="'+esc(title)+'">\n<meta property="og:description" content="'+esc(desc)+'">\n'+
+    '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@300;400;500&display=swap">\n'+
+    '<style>\nhtml,body{margin:0;background:var(--nd-bg)}\n'+NDL.css+'\n</style>\n</head>\n<body>\n<div class="ndl" id="ndl">'+NDL.render(pub)+'</div>\n<script>'+LANDING_SRC+'<\/script>\n<script>\n'+
+    '/* Куда отправлять заявки. Пока пусто: кандидат получает готовый текст и отправляет его клубу на почту. Когда появится приёмник заявок, впишите его адрес. */\n'+
+    'var FORM_ENDPOINT = '+JSON.stringify(endpoint())+';\nvar C = '+jsonSafe({slug:pub.slug,name:pub.name,nameGenitive:pub.nameGenitive,signoff:pub.signoff})+';\n'+
+    '(function(){var root=document.getElementById("ndl");var q=new URLSearchParams(location.search);\n'+
+    'NDL.bind(root,C,{submit:function(lead){lead.ref=q.get("ref")||C.slug;lead.utm=q.toString();lead.page=location.href;\n'+
+    'if(!FORM_ENDPOINT)return {mode:"manual"};return fetch(FORM_ENDPOINT,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(lead)})'+
+    '.then(function(r){return r.json();}).then(function(d){if(!d||!d.ok)throw new Error("error");return {mode:"saved"};});}});})();\n<\/script>\n</body>\n</html>\n';
+}
+
+/* ================= Роутинг ================= */
+function hash(){return (location.hash||"").replace(/^#/,"")||"invites";}
+function go(h){if(location.hash==="#"+h)route();else location.hash=h;}
+function route(){
+  var h=hash(),tab=h.indexOf("edit-")===0?"invites":h;
+  document.querySelectorAll(".nav [data-nav]").forEach(function(a){if(a.dataset.nav===tab)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
+  closeOverlay();BR={};
+  if(h==="new")renderCreate();
+  else if(h==="club")openClub();
+  else if(h.indexOf("edit-")===0)openEditor(decodeURIComponent(h.slice(5)));
+  else{S.ed=null;renderInvites();}
+  window.scrollTo(0,0);
+}
+window.addEventListener("hashchange",route);
+
+function storeBanner(){return canStore?'':'<div class="banner err">'+ic("info")+'<div class="grow"><b>Браузер не сохраняет данные сам</b><span>Перед закрытием нажмите «Сохранить всё в файл» слева, иначе правки пропадут.</span></div></div>';}
+
+/* ================= Список ================= */
+function renderInvites(){
+  var all=docs(),q=S.q.trim().toLowerCase();
+  var ls=all.filter(function(x){return (S.filter==="all"||(x.status||"draft")===S.filter)&&(!q||(x.name+" "+x.role).toLowerCase().indexOf(q)>=0);}).sort(function(a,b){return String(b.updatedAt).localeCompare(String(a.updatedAt));});
+  var na=all.filter(function(x){return x.status==="approved";}).length,nd=all.length-na;
+  var h='<div class="pagehead"><div><p class="eyebrow">Реферальные лендинги</p><h1 class="title">Приглашения</h1><p class="lead">Именные страницы, которыми участники клуба делятся с друзьями. Откройте приглашение, чтобы поправить текст и скачать готовую страницу.</p></div><a class="btn primary" href="#new">'+ic("plus")+'Новое приглашение</a></div>';
+  h+=storeBanner();
+  h+='<div class="toolbar"><label class="search">'+ic("search")+'<input class="input" id="q" placeholder="Поиск по имени или роли" value="'+esc(S.q)+'" aria-label="Поиск"></label>'+
+    '<div class="seg" role="group" aria-label="Фильтр"><button data-f="all" aria-pressed="'+(S.filter==="all")+'">Все · '+all.length+'</button><button data-f="draft" aria-pressed="'+(S.filter==="draft")+'">Черновики · '+nd+'</button><button data-f="approved" aria-pressed="'+(S.filter==="approved")+'">Согласованы · '+na+'</button></div></div><div class="grid">';
+  if(!q&&S.filter==="all")h+='<a class="newinv" href="#new"><span class="plus">'+ic("plus")+'</span>Новое приглашение<span class="muted small" style="font-weight:400">Из интервью, анкеты или заметок</span></a>';
+  ls.forEach(function(x){
+    h+='<a class="card inv" href="#edit-'+encodeURIComponent(x.slug)+'"><div class="top">'+(x.photo?'<img class="ph" src="'+esc(x.photo)+'" alt="">':'<span class="avatar">'+esc(initials(x.name))+'</span>')+'<div style="min-width:0"><b>'+esc(x.name)+'</b><div style="margin-top:6px">'+pill(x.status)+'</div></div></div>'+
+      '<p class="role">'+esc(x.role||"Роль не указана")+'</p><div class="meta"><span>'+(x.blocks||[]).length+' блоков</span><span>'+esc(when(x.updatedAt))+'</span></div></a>';
+  });
+  h+='</div>';
+  if(!ls.length&&(q||S.filter!=="all"))h+='<div class="empty">Ничего не нашлось.</div>';
+  view.innerHTML=h;
+  var qi=document.getElementById("q");qi.oninput=function(){S.q=qi.value;var p=qi.selectionStart;renderInvites();var n=document.getElementById("q");n.focus();n.setSelectionRange(p,p);};
+  view.querySelectorAll("[data-f]").forEach(function(b){b.onclick=function(){S.filter=b.dataset.f;renderInvites();};});
+}
+
+/* ================= Новое приглашение ================= */
+function renderCreate(){
+  var cr=S.create||(S.create={text:"",file:"",photo:"",reading:false,err:""});
+  var has=cr.text.trim().length>=200;
+  var h='<div class="create"><div class="pagehead"><div><p class="eyebrow">Новое приглашение</p><h1 class="title">Отправьте текст про участника, соберём лендинг</h1><p class="lead">Тексты пишет Claude в обычном чате на claude.ai. Запрос и ответ переносятся копированием, ключ API не нужен.</p></div></div><ol class="steps">';
+  h+='<li class="'+(has?"done":"")+'"><b>Материалы об участнике</b>';
+  if(cr.reading)h+='<div class="row"><span class="spinner"></span>Читаю файл…</div>';
+  else if(has)h+='<div class="row"><span class="hint">'+(cr.file?esc(cr.file)+' · ':'')+cr.text.length.toLocaleString("ru-RU")+' символов</span><button class="btn sm ghost" id="resetText">Заменить</button></div>';
+  else h+='<label class="drop" id="drop" for="file" style="padding:32px 20px"><span class="dropicon">'+ic("upload")+'</span><b style="font-size:26px">Перетащите файл сюда</b><span class="muted">или нажмите, чтобы выбрать</span><span class="formats">Интервью, анкета, заметки · .docx .pdf .txt .md .rtf .html</span></label><input id="file" type="file" hidden accept=".docx,.pdf,.txt,.md,.rtf,.html,.htm,.srt,.vtt,.csv,.json,text/*,application/pdf">'+
+    '<details class="more"><summary>Или вставьте текст</summary><div class="field" style="margin-top:10px"><textarea id="paste" rows="8" aria-label="Текст про участника" placeholder="Стенограмма, анкета или заметки после разговора"></textarea></div><div class="row"><button class="btn sm primary" id="usePaste">Готово</button></div></details>';
+  if(cr.err)h+='<p class="err small">'+esc(cr.err)+'</p>';
+  h+='</li>';
+  h+='<li class="'+(cr.photo?"done":"")+'"><b>Фото участника</b><div class="row">'+(cr.photo?'<img class="thumb" src="'+esc(cr.photo)+'" alt="">':'')+'<label class="btn sm" for="cphoto">'+ic("upload")+(cr.photo?"Заменить":"Загрузить фото")+'</label><input id="cphoto" type="file" accept="image/*" hidden><span class="hint">Лучше снимок, сделанный в стенах клуба. Можно и позже, в редакторе</span></div></li>';
+  h+='<li><b>Тексты от Claude</b>'+(has?bridge("create","Claude выпишет факты и напишет письмо в тоне Noôdome",function(){return createPrompt(S.create.text);},function(j){var p=j.profile||(j.name?j:null),t=j.texts||(j.letter?j:null);if(!p&&!t)throw new Error("В ответе нет профиля и текстов. Скопируйте ответ целиком.");finishCreate(p,t);}):'<p class="hint">Сначала добавьте материалы.</p>')+
+    '<div class="row"><button class="btn sm ghost" id="noAi"'+(has?'':' disabled')+'>Собрать без Claude, тексты впишу сам</button></div></li>';
+  h+='</ol></div>';
+  view.innerHTML=h;
+  var file=document.getElementById("file");
+  if(file){
+    var drop=document.getElementById("drop");
+    file.onchange=function(){if(file.files[0])takeFile(file.files[0]);};
+    ["dragenter","dragover"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add("over");});});
+    ["dragleave","drop"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove("over");});});
+    drop.addEventListener("drop",function(e){var f=e.dataTransfer&&e.dataTransfer.files[0];if(f)takeFile(f);});
+    document.getElementById("usePaste").onclick=function(){var v=document.getElementById("paste").value.trim();if(v.length<200){toast("Добавьте хотя бы несколько абзацев о человеке");return;}cr.text=v;cr.file="";cr.err="";renderCreate();};
+  }
+  var rs=document.getElementById("resetText");if(rs)rs.onclick=function(){cr.text="";cr.file="";renderCreate();};
+  document.getElementById("cphoto").onchange=function(e){var f=e.target.files[0];if(f)resizePhoto(f).then(function(u){cr.photo=u;renderCreate();});};
+  document.getElementById("noAi").onclick=function(){finishCreate(null,null);};
+}
+function takeFile(f){
+  var cr=S.create;cr.reading=true;cr.err="";renderCreate();
+  readFile(f).then(function(t){t=String(t||"").trim();cr.reading=false;if(t.length<200){cr.err="В файле почти нет текста. Если это скан, вставьте текст вручную.";}else{cr.text=t;cr.file=f.name;}renderCreate();})
+  .catch(function(e){cr.reading=false;cr.err=e&&e.message==="format"?"Этот формат не читается. Сохраните файл как .docx, .pdf или .txt.":"Не получилось прочитать файл. Нужен интернет для .docx и .pdf, или вставьте текст вручную.";renderCreate();});
+}
+function finishCreate(p,t){
+  var cr=S.create;p=p||{};t=t||{};
+  var name=p.name||"Новый Коннектор";
+  var why=Array.isArray(t.why)?t.why.join(" "):(t.why||(Array.isArray(t.letter)?t.letter[0]:"")||"");
+  var blocks=NDL.defaultBlocks({why:why,mine:t.mine,story:t.story});
+  var facts=arr(p.facts).concat(arr(t.facts));if(why)facts.push({field:"Блоки 1–3",source:"Написал Claude по профилю. Согласовать с Коннектором"});
+  var gaps=arr(p.gaps);if(!why)gaps.unshift("Тексты не сгенерированы: впишите их в редакторе");
+  gaps.push("Нужна фотография участника, сделанная в стенах клуба: тогда блок «Для меня Noôdome» связывает человека с местом");
+  if(t.story&&(t.story.title||t.story.text))gaps.push("Нужна хотя бы одна фотография к проекту");
+  var now=new Date().toISOString();
+  var doc={slug:slugify(name),name:name,nameGenitive:p.nameGenitive||name,signoff:p.signoff||String(name).split(" ")[0],role:t.role||p.role||"",photo:cr.photo||"",photoIsPortrait:true,status:"draft",
+    blocks:blocks,messenger:t.messenger||"",review:{facts:facts,gaps:gaps},profile:p,source:String(cr.text||"").slice(0,40000),fileName:cr.file||"",createdAt:now,updatedAt:now};
+  DB.docs[doc.slug]=doc;persist();S.create=null;toast("Приглашение готово. Проверьте его");go("edit-"+doc.slug);
+}
+
+/* ================= Редактор ================= */
+function openEditor(slug){
+  var d=DB.docs[slug];
+  if(!d){view.innerHTML='<div class="empty">Приглашение не найдено.<a class="btn sm" href="#invites">К списку</a></div>';return;}
+  if(!d.blocks||!d.blocks.length)d.blocks=NDL.toBlocks(d);
+  if(!S.ed||S.ed.slug!==slug)S.ed={slug:slug,doc:d,sel:null,add:null,del:null,view:"phone",tab:"blocks",share:false,menu:false,delAsk:false,rw:{}};
+  renderEditor();
+}
+/* Раздел «Клуб»: те же карточки блоков, но данные — общие DB.club, их видят все приглашения. */
+function openClub(){
+  if(!S.ed||S.ed.slug!=="__club"){
+    var doc={slug:"__club",name:"Имя Фамилия",nameGenitive:"Имени Фамилии",signoff:"Имя",updatedAt:DB.clubUpdatedAt||"",
+      blocks:SHARED.map(function(k){return {id:"club-"+k,type:k,theme:"auto",data:DB.club[k]||(DB.club[k]=TYPES[k].make())};})};
+    S.ed={slug:"__club",club:true,doc:doc,sel:null,add:null,del:null,view:"phone",tab:"blocks",share:false,menu:false,delAsk:false,rw:{}};
+  }
+  renderEditor();
+}
+function renderEditor(){
+  var E=S.ed,d=E.doc,gaps=arr((d.review||{}).gaps);BR={};
+  if(E.club){
+    var hc='<div class="edbar"><div class="who"><div style="min-width:0"><h1>Общие блоки клуба</h1><p class="saved" id="saveState"><span class="d"></span><span>'+(canStore?"Сохранено в браузере":"Не забудьте сохранить в файл")+'</span></p></div></div></div>';
+    hc+='<div class="banner">'+ic("info")+'<div class="grow"><b>Эти блоки одинаковые во всех приглашениях</b><span>Поправьте текст, фото или афишу здесь один раз. Изменения сразу появятся во всех приглашениях; уже скачанные лендинги нужно скачать заново. Вместо «Имя Фамилия» на странице встанет имя участника.</span></div><button class="btn sm ghost" data-c="clubreset">Вернуть исходные</button></div>';
+    if(E.resetAsk)hc+='<div class="banner err">'+ic("refresh")+'<div class="grow"><b>Вернуть общие блоки к исходным?</b><span>Ваши правки в разделе «Клуб» пропадут.</span></div><div class="row"><button class="btn sm" data-c="resetno">Отмена</button><button class="btn sm primary" data-c="resetyes">Вернуть</button></div></div>';
+    hc+=storeBanner()+'<div class="ed-cols"><div style="display:grid;gap:16px;min-width:0" id="edl"><div class="blocks">';
+    d.blocks.forEach(function(b,i){hc+=blockCard(b,i,d.blocks.length);});
+    hc+='</div></div>'+previewCol()+'</div>';
+    var pv0=document.getElementById("pvs"),keep0=pv0?pv0.scrollTop:0;
+    view.innerHTML=hc;paintPreview();document.getElementById("pvs").scrollTop=keep0;bindEditor();return;
+  }
+  var h='<div class="edbar"><div class="who"><a class="icon" href="#invites" aria-label="Все приглашения">'+ic("back")+'</a><div style="min-width:0"><h1>'+esc(d.name)+'</h1><p class="saved" id="saveState"><span class="d"></span><span>'+(canStore?"Сохранено в браузере "+esc(when(d.updatedAt)):"Не забудьте сохранить в файл")+'</span></p></div></div>'+
+    '<div class="row"><div class="seg status" role="group" aria-label="Статус"><button data-st="draft" aria-pressed="'+(d.status!=="approved")+'">Черновик</button><button data-st="approved" aria-pressed="'+(d.status==="approved")+'">'+ic("check")+'Согласовано</button></div>'+
+    '<button class="btn primary" id="dlBtn">'+ic("download")+'Скачать лендинг</button>'+
+    '<div class="menu"><button class="icon" id="menuBtn" aria-label="Ещё" aria-expanded="'+E.menu+'">'+ic("more")+'</button>'+(E.menu?'<div class="menu-pop"><button data-m="preview">'+ic("eye")+'Посмотреть как кандидат</button><button data-m="msg">'+ic("msg")+'Текст для мессенджера</button><button data-m="json">'+ic("download")+'Сохранить это приглашение в файл</button><button data-m="danger" class="danger">'+ic("trash")+'Удалить приглашение</button></div>':'')+'</div></div></div>';
+  if(E.share)h+='<div class="share"><div class="row" style="justify-content:space-between"><b class="h3">Текст для Telegram или WhatsApp</b><button class="icon" data-c="shareclose" aria-label="Закрыть">✕</button></div><p class="hint">Коннектор отправит его сам. Вместо {ссылка} подставьте адрес страницы, когда разместите её на сайте.</p><div class="field"><textarea readonly rows="4">'+esc(msgText(d))+'</textarea></div><div class="row"><button class="btn sm" data-c="copymsg">'+ic("copy")+'Скопировать</button></div></div>';
+  if(E.delAsk)h+='<div class="banner err">'+ic("trash")+'<div class="grow"><b>Удалить приглашение '+esc(d.nameGenitive||d.name)+'?</b><span>Оно пропадёт из этого браузера. Если нужно, сначала сохраните его в файл.</span></div><div class="row"><button class="btn sm" data-c="delno">Отмена</button><button class="btn sm primary" data-c="delyes">Удалить</button></div></div>';
+  h+=storeBanner();
+  h+='<div class="ed-cols"><div style="display:grid;gap:16px;min-width:0" id="edl">';
+  h+='<div class="tabs" role="tablist"><button role="tab" data-tab="blocks" aria-selected="'+(E.tab==="blocks")+'">Блоки</button><button role="tab" data-tab="check" aria-selected="'+(E.tab==="check")+'">Проверка'+(gaps.length?'<span class="cnt">'+gaps.length+'</span>':'')+'</button><button role="tab" data-tab="settings" aria-selected="'+(E.tab==="settings")+'">Настройки</button></div>';
+  if(E.tab==="blocks"){h+='<div class="blocks">';d.blocks.forEach(function(b,i){h+=blockCard(b,i,d.blocks.length);});h+='</div>';h+=E.add?addPanel():'<div class="addbar"><button class="btn" id="addOpen">'+ic("plus")+'Добавить блок</button></div>';}
+  else if(E.tab==="check")h+=checkTab(d);else h+=settingsTab(d);
+  h+='</div>'+previewCol()+'</div>';
+  var pvs=document.getElementById("pvs"),keep=pvs?pvs.scrollTop:0;
+  view.innerHTML=h;paintPreview();document.getElementById("pvs").scrollTop=keep;bindEditor();
+}
+function previewCol(){
+  var E=S.ed;
+  return '<div class="sticky" style="display:grid;gap:12px;min-width:0"><div class="pv-head"><p class="eyebrow">Превью · нажмите на блок, чтобы его открыть</p><div class="seg" role="group" aria-label="Размер превью"><button data-v="phone" aria-pressed="'+(E.view==="phone")+'" aria-label="Телефон">'+ic("phone")+'</button><button data-v="wide" aria-pressed="'+(E.view==="wide")+'" aria-label="Компьютер">'+ic("desk")+'</button></div></div><div class="phone'+(E.view==="wide"?" wide":"")+'"><div class="screen" id="pvs"><div class="ndl editing" id="pv"></div></div></div></div>';
+}
+function checkTab(d){
+  var rv=d.review||{},gaps=arr(rv.gaps),facts=arr(rv.facts),h='';
+  h+='<div class="panel"><b class="h3">Уточнить у Коннектора</b>'+(gaps.length?'<ul class="gaps">'+gaps.map(function(g){return "<li>"+esc(g)+"</li>";}).join("")+'</ul>':'<p class="muted">Вопросов нет.</p>')+'<p class="muted small">Покажите Коннектору страницу целиком и получите согласие на текст и фото, прежде чем отмечать «Согласовано».</p></div>';
+  h+='<div class="panel"><b class="h3">Откуда взят каждый блок</b>'+(facts.length?'<ul class="facts">'+facts.map(function(f){return '<li><b>'+esc(f.field)+'</b><span class="muted">'+esc(f.source)+'</span></li>';}).join("")+'</ul>':'<p class="muted">Источники не записаны.</p>')+'</div>';
+  if(d.source)h+='<details class="more panel"><summary>Исходный текст'+(d.fileName?' · '+esc(d.fileName):'')+'</summary><div style="white-space:pre-wrap;max-height:420px;overflow:auto;font-size:13px;color:var(--ink2)">'+esc(d.source)+'</div></details>';
+  return h;
+}
+function settingsTab(d){
+  return '<div class="panel"><div class="row2">'+fieldHtml("s-name","Имя и фамилия",d.name,"",'data-doc="name"')+fieldHtml("s-gen","Приглашение от… (родительный падеж)",d.nameGenitive,"",'data-doc="nameGenitive"')+'</div>'+
+    '<div class="row2">'+fieldHtml("s-sign","Подпись в письме",d.signoff,"",'data-doc="signoff"')+fieldHtml("s-role","Кто он, одной строкой",d.role,"",'data-doc="role"')+'</div>'+
+    '<div class="field"><span>Фото участника (для блока «Для меня Noôdome», лучше снятое в клубе)</span><div class="row">'+(d.photo?'<img class="thumb" src="'+esc(d.photo)+'" alt="">':'')+'<label class="btn sm" for="s-photo">'+ic("upload")+(d.photo?"Заменить":"Загрузить")+'</label><input id="s-photo" type="file" accept="image/*" hidden data-photo="__doc">'+(d.photo?'<button class="btn sm ghost" data-rmdocphoto="1">Убрать</button>':'')+'</div></div>'+
+    fieldHtml("s-msg","Текст для мессенджера ({ссылка} — адрес страницы)",d.messenger,"area",'data-doc="messenger"')+
+    '<div class="field"><span>Куда отправлять заявки кандидатов (общая настройка, можно оставить пустым)</span><input id="s-endpoint" data-endpoint="1" placeholder="https://script.google.com/macros/s/…/exec" value="'+esc((DB.settings||{}).endpoint||"")+'"><span class="muted small" style="font-weight:400">Пусто: кандидат получает готовый текст заявки и отправляет его клубу на почту. Адрес можно вписать позже и скачать лендинг заново.</span></div>'+
+    '<p class="muted small">Код приглашения: <b>'+esc(d.slug)+'</b>. В текстах блоков можно писать {name}, {nameGenitive} и {signoff}, они подставятся сами.</p></div>';
+}
+function blockCard(b,i,n){
+  var E=S.ed,t=TYPES[b.type]||{label:b.type,fields:[]},open=E.sel===b.id,id=esc(b.id),locked=t.shared&&!E.club;
+  var h='<div class="blk'+(open?" sel":"")+'" data-card="'+id+'"><div class="blk-h" data-open="'+id+'"><span class="num">'+(i+1)+'</span><span style="min-width:0"><b>'+esc(t.label)+(locked?'<span class="tag-shared">общий</span>':'')+'</b><small>'+esc(NDL.sub(summary(b),E.doc)||"Пусто")+'</small></span>';
+  if(!E.club)h+='<span class="tools"><button class="icon" data-mv="-1" data-id="'+id+'" aria-label="Выше"'+(i===0?" disabled":"")+'>'+ic("up")+'</button><button class="icon" data-mv="1" data-id="'+id+'" aria-label="Ниже"'+(i===n-1?" disabled":"")+'>'+ic("down")+'</button>'+
+    (t.single||t.shared?'':'<button class="icon" data-dup="'+id+'" aria-label="Дублировать">'+ic("dup")+'</button>')+'<button class="icon" data-delask="'+id+'" aria-label="Удалить">'+ic("trash")+'</button></span>';
+  h+='</div>';
+  if(E.del===b.id)h+='<div class="confirm">Удалить блок «'+esc(t.label)+'»?<span class="spacer"></span><button class="btn sm" data-delno="1">Отмена</button><button class="btn sm primary" data-delyes="'+id+'">Удалить</button></div>';
+  if(!open)return h+'</div>';
+  h+='<div class="blk-b">';
+  if(locked){
+    h+='<div class="locked"><b>Общий блок клуба</b><span>Он одинаковый во всех приглашениях. Текст, фото и пункты правятся в разделе «Клуб: общие блоки». Здесь можно поменять фон, порядок или убрать блок с этой страницы.</span><div class="row"><a class="btn sm" href="#club">'+ic("folder")+'Открыть общие блоки</a></div></div>';
+    return h+themeSel(b,id)+'</div></div>';
+  }
+  if(t.photo){var ph=t.docPhoto?(b.data.photo||E.doc.photo):b.data.photo;
+    h+='<div class="field"><span>'+(t.docPhoto?'Фото участника (лучше снятое в стенах клуба)':'Фото')+'</span><div class="row">'+(ph?'<img class="thumb" src="'+esc(ph)+'" alt="">':'')+'<label class="btn sm" for="ph-'+id+'">'+ic("upload")+(ph?"Заменить":"Загрузить")+'</label><input id="ph-'+id+'" type="file" accept="image/*" hidden data-photo="'+id+'">'+(ph?'<button class="btn sm ghost" data-rmphoto="'+id+'">Убрать</button>':'')+'</div></div>';}
+  t.fields.forEach(function(f){var v=b.data[f[0]];if(f[2]==="paras")v=NDL.paras(v).join("\n\n");h+=fieldHtml("f-"+b.id+"-"+f[0],f[1],v,f[2],'data-b="'+id+'" data-k="'+f[0]+'"'+(f[2]==="paras"?' data-paras="1"':''));});
+  if(t.items){
+    h+='<div class="field"><span>Пункты</span><div style="display:grid;gap:8px">';
+    (b.data.items||[]).forEach(function(it,j){
+      h+='<div class="item-ed">'+t.items.map(function(f){
+        if(f[2]!=="photo")return fieldHtml("f-"+b.id+"-"+j+"-"+f[0],f[1],it[f[0]],f[2],'data-b="'+id+'" data-i="'+j+'" data-ik="'+f[0]+'"');
+        var p=it[f[0]],fid="ip-"+id+"-"+j;
+        return '<div class="field"><span>'+esc(f[1])+'</span><div class="iph">'+(p?'<img src="'+esc(p)+'" alt="">':'')+'<label class="btn sm" for="'+fid+'">'+ic("upload")+(p?"Заменить":"Загрузить")+'</label><input id="'+fid+'" type="file" accept="image/*" hidden data-iphoto="'+id+'" data-i="'+j+'" data-ik="'+f[0]+'">'+(p?'<button class="btn sm ghost" data-rmiphoto="'+id+'" data-i="'+j+'" data-ik="'+f[0]+'">Убрать</button>':'')+'</div></div>';
+      }).join("")+'<div class="row"><span class="muted small">Пункт '+(j+1)+'</span>'+(j>0?'<button class="btn sm ghost" data-upitem="'+id+'" data-i="'+j+'">'+ic("up")+'Выше</button>':'')+'<button class="btn sm ghost danger" data-rmitem="'+id+'" data-i="'+j+'">Убрать</button></div></div>';
+    });
+    h+='<button class="btn sm" data-additem="'+id+'">'+ic("plus")+'Пункт</button></div></div>';
+  }
+  h+=themeSel(b,id);
+  if(b.type!=="apply"){
+    var bid=b.id;
+    h+='<details class="more"'+(E.rw[bid]!=null?" open":"")+'><summary>'+ic("spark")+'Переписать с Claude</summary><div style="display:grid;gap:10px;margin-top:10px"><input class="input" data-rwinstr="'+id+'" value="'+esc(E.rw[bid]||"")+'" placeholder="Что изменить: например, короче и теплее, добавь про Байкал" aria-label="Что изменить в блоке">'+
+      bridge("rw-"+bid,"Claude перепишет только этот блок",function(){var ins=(E.rw[bid]||"").trim();if(!ins){toast("Сначала напишите, что изменить");return "";}var bb=E.doc.blocks[findB(bid)];return rewritePrompt(bb,ins,E.doc);},function(j){
+        var dd=j.data||j;if(typeof dd!=="object")throw new Error("В ответе нет данных блока.");
+        var cur=E.doc.blocks[findB(bid)],old=cur.data,nd=Object.assign({},old,dd);
+        if(old.photo)nd.photo=old.photo;else delete nd.photo;
+        /* фото пунктов Claude не видит: переносим их по порядку */
+        if(Array.isArray(nd.items)&&Array.isArray(old.items))nd.items=nd.items.map(function(x,k){x=Object.assign({},x);delete x.photo;if(old.items[k]&&old.items[k].photo)x.photo=old.items[k].photo;return x;});
+        cur.data=nd;delete E.rw[bid];changed(true);toast("Блок переписан");})+'</div></details>';
+  }
+  return h+'</div></div>';
+}
+function themeSel(b,id){
+  return '<label class="field" for="th-'+id+'"><span>Фон блока</span><select id="th-'+id+'" data-themesel="'+id+'">'+NDL.THEMES.map(function(x){return '<option value="'+x[0]+'"'+((b.theme||"auto")===x[0]?" selected":"")+'>'+x[1]+(x[0]==="auto"?" · подбирается под соседние блоки":"")+'</option>';}).join("")+'</select></label>';
+}
+function fieldHtml(id,label,v,kind,attrs){
+  v=v==null?"":v;var rows=kind==="paras"?8:kind==="area"?3:0;
+  return '<label class="field" for="'+esc(id)+'"><span>'+esc(label)+'</span>'+(rows?'<textarea id="'+esc(id)+'" rows="'+rows+'" '+attrs+'>'+esc(v)+'</textarea>':'<input id="'+esc(id)+'" value="'+esc(v)+'" '+attrs+'>')+'</label>';
+}
+function addPanel(){
+  var E=S.ed,has=function(t){return E.doc.blocks.some(function(b){return b.type===t;});};
+  var h='<div class="addpanel"><div class="row" style="justify-content:space-between"><b class="h2">Новый блок</b><button class="btn sm ghost" id="addClose">Закрыть</button></div>';
+  h+='<div class="field"><span>Выберите пустой блок и заполните сами</span><div class="types">';
+  Object.keys(TYPES).forEach(function(k){if((TYPES[k].single||TYPES[k].shared||k==="hero")&&has(k))return;h+='<button class="type" data-addtype="'+k+'"><b>'+esc(TYPES[k].label)+'</b><span>'+esc(TYPE_HINT[k]||"")+'</span></button>';});
+  h+='</div></div>';
+  h+='<div class="field"><span>Или опишите блок, и Claude соберёт его из материалов</span><textarea id="addDesc" class="input" rows="2" placeholder="Например: блок про Байкал и Иркутск как места силы">'+esc(E.add.desc||"")+'</textarea></div>';
+  h+=bridge("add","Новый блок по описанию",function(){var ds=(E.add&&E.add.desc||"").trim();if(!ds){toast("Опишите, какой блок нужен");return "";}return newBlockPrompt(ds,E.doc);},function(r){
+    if(r.error)return "Claude пишет, что не хватает данных: "+r.error;
+    if(!TYPES[r.type]||TYPES[r.type].shared||r.type==="hero"||!r.data)throw new Error("Ответ не получилось разобрать.");
+    var data=Object.assign(TYPES[r.type].make(),r.data);delete data.photo;if(r.type==="photo")data.photo="";
+    var nb=NDL.block(r.type,data),desc=E.add.desc;E.doc.blocks.splice(insertAt(),0,nb);E.sel=nb.id;E.add=null;
+    E.doc.review=E.doc.review||{facts:[],gaps:[]};E.doc.review.facts=arr(E.doc.review.facts).concat([{field:"Блок «"+TYPES[r.type].label+"»",source:"Написал Claude по запросу: "+desc}]);
+    changed(true);toast("Блок добавлен, проверьте текст");});
+  h+='<p class="muted small">Блок встанет '+(E.sel?"после выбранного":"перед формой заявки")+'.</p></div>';
+  return h;
+}
+function paintPreview(){var E=S.ed,pv=document.getElementById("pv");if(!E||!pv)return;var dc=withClub(E.doc);pv.innerHTML=NDL.render(dc,{selected:E.sel});NDL.bind(pv,dc,{submit:function(){return Promise.resolve({mode:"manual"});}});}
+function findB(id){var bs=S.ed.doc.blocks;for(var i=0;i<bs.length;i++)if(bs[i].id===id)return i;return -1;}
+function changed(full){
+  var E=S.ed;E.doc.updatedAt=new Date().toISOString();clearTimeout(E.timer);
+  if(E.club){E.doc.blocks.forEach(function(b){DB.club[b.type]=b.data;});DB.clubUpdatedAt=E.doc.updatedAt;}
+  E.timer=setTimeout(function(){var ok=persist();var el=document.getElementById("saveState");if(el)el.lastChild.textContent=ok?"Сохранено в браузере":"Не сохранилось: сохраните в файл";},500);
+  if(full)renderEditor();else{clearTimeout(E.pt);E.pt=setTimeout(paintPreview,180);}
+}
+function insertAt(){var E=S.ed,bs=E.doc.blocks,i=E.sel?findB(E.sel):-1;if(i>=0&&bs[i].type!=="apply")return i+1;for(var k=0;k<bs.length;k++)if(bs[k].type==="apply")return k;return bs.length;}
+function fileName(d){return (d.slug||"invite")+".html";}
+function bindEditor(){
+  var E=S.ed,d=E.doc,root=document.getElementById("edl");
+  view.querySelectorAll("[data-v]").forEach(function(b){b.onclick=function(){E.view=b.dataset.v;renderEditor();};});
+  view.querySelectorAll("[data-tab]").forEach(function(b){b.onclick=function(){E.tab=b.dataset.tab;renderEditor();};});
+  view.querySelectorAll("[data-st]").forEach(function(b){b.onclick=function(){if(d.status===b.dataset.st)return;d.status=b.dataset.st;changed(true);};});
+  var dlb=document.getElementById("dlBtn");if(dlb)dlb.onclick=function(){download(fileName(d),standalone(d),"text/html");toast(d.status==="approved"?"Файл "+fileName(d)+" скачан":"Скачан черновик. Перед отправкой согласуйте текст с Коннектором");};
+  var mb=document.getElementById("menuBtn");if(mb)mb.onclick=function(e){e.stopPropagation();E.menu=!E.menu;renderEditor();};
+  view.querySelectorAll("[data-m]").forEach(function(b){b.onclick=function(){E.menu=false;var m=b.dataset.m;
+    if(m==="preview")openPreview(d);else if(m==="msg"){E.share=true;renderEditor();}
+    else if(m==="json"){download(d.slug+".json",JSON.stringify(d),"application/json");renderEditor();}
+    else if(m==="danger"){E.delAsk=true;renderEditor();window.scrollTo(0,0);}};});
+  view.querySelectorAll("[data-c]").forEach(function(b){b.onclick=function(){var c=b.dataset.c;
+    if(c==="shareclose"){E.share=false;renderEditor();}else if(c==="copymsg")copy(msgText(d),"Текст скопирован");
+    else if(c==="delno"){E.delAsk=false;renderEditor();}
+    else if(c==="clubreset"){E.resetAsk=true;renderEditor();}else if(c==="resetno"){E.resetAsk=false;renderEditor();}
+    else if(c==="resetyes"){DB.club=clubFromSeed();DB.clubVersion=CLUB_SEED.version||1;persist();S.ed=null;openClub();toast("Общие блоки возвращены к исходным");}else if(c==="delyes"){delete DB.docs[d.slug];persist();S.ed=null;toast("Приглашение удалено");go("invites");}};});
+  if(E.menu)setTimeout(function(){document.addEventListener("click",function(){if(S.ed===E&&E.menu){E.menu=false;renderEditor();}},{once:true});},0);
+  document.getElementById("pv").addEventListener("click",function(e){
+    var s=e.target.closest("[data-bid]");if(!s||e.target.closest("form,summary,a,button,input,textarea"))return;
+    E.sel=s.dataset.bid;E.tab="blocks";renderEditor();var card=document.querySelector('[data-card="'+E.sel+'"]');if(card)card.scrollIntoView({block:"nearest",behavior:"smooth"});
+  });
+  root.addEventListener("input",function(e){
+    var el=e.target,v=el.value;
+    if(el.dataset.rwinstr){E.rw[el.dataset.rwinstr]=v;return;}
+    if(el.id==="addDesc"){E.add.desc=v;return;}
+    if(el.dataset.bans!=null)return;
+    if(el.dataset.endpoint){DB.settings=DB.settings||{};DB.settings.endpoint=v.trim();persist();return;}
+    if(el.dataset.doc){d[el.dataset.doc]=v;changed(false);return;}
+    var bid=el.dataset.b;if(!bid)return;var b=d.blocks[findB(bid)];if(!b)return;
+    if(el.dataset.ik!=null)b.data.items[+el.dataset.i][el.dataset.ik]=v;
+    else if(el.dataset.k)b.data[el.dataset.k]=el.dataset.paras?v.split(/\n\s*\n/):v;
+    var sm=document.querySelector('[data-card="'+bid+'"] .blk-h small');if(sm)sm.textContent=NDL.sub(summary(b),d)||"Пусто";
+    changed(false);
+  });
+  root.addEventListener("change",function(e){
+    var el=e.target;
+    if(el.dataset.themesel){d.blocks[findB(el.dataset.themesel)].theme=el.value;changed(false);return;}
+    if(el.dataset.photo&&el.files&&el.files[0]){resizePhoto(el.files[0],el.dataset.photo==="__doc"?720:1200).then(function(u){
+      if(el.dataset.photo==="__doc")d.photo=u;else{var b=d.blocks[findB(el.dataset.photo)];if(TYPES[b.type].docPhoto){d.photo=u;b.data.photo="";}else b.data.photo=u;}
+      changed(true);},function(){toast("Не удалось прочитать фото");});}
+    if(el.dataset.iphoto&&el.files&&el.files[0]){resizePhoto(el.files[0],640).then(function(u){var b=d.blocks[findB(el.dataset.iphoto)];b.data.items[+el.dataset.i][el.dataset.ik]=u;changed(true);},function(){toast("Не удалось прочитать фото");});}
+  });
+  root.addEventListener("click",function(e){
+    var t=e.target.closest("button,[data-open]");if(!t||t.closest(".bridge"))return;var ds=t.dataset;
+    if(ds.mv){var i=findB(ds.id),j=i+(+ds.mv),bs=d.blocks;if(j<0||j>=bs.length)return;var x=bs[i];bs[i]=bs[j];bs[j]=x;changed(true);return;}
+    if(ds.dup){var k=findB(ds.dup),c2=clone(d.blocks[k]);c2.id=NDL.newId();d.blocks.splice(k+1,0,c2);E.sel=c2.id;changed(true);return;}
+    if(ds.delask){E.del=ds.delask;renderEditor();return;}
+    if(ds.delno){E.del=null;renderEditor();return;}
+    if(ds.delyes){d.blocks.splice(findB(ds.delyes),1);if(E.sel===ds.delyes)E.sel=null;E.del=null;changed(true);return;}
+    if(ds.open!=null){if(e.target.closest(".tools"))return;E.sel=E.sel===ds.open?null:ds.open;renderEditor();return;}
+    if(ds.additem){var b=d.blocks[findB(ds.additem)],o={};TYPES[b.type].items.forEach(function(f){o[f[0]]="";});b.data.items=(b.data.items||[]).concat([o]);changed(true);return;}
+    if(ds.rmitem){d.blocks[findB(ds.rmitem)].data.items.splice(+ds.i,1);changed(true);return;}
+    if(ds.rmphoto){var b3=d.blocks[findB(ds.rmphoto)];if(TYPES[b3.type].docPhoto){d.photo="";b3.data.photo="";}else b3.data.photo="";changed(true);return;}
+    if(ds.rmiphoto){d.blocks[findB(ds.rmiphoto)].data.items[+ds.i][ds.ik]="";changed(true);return;}
+    if(ds.upitem){var it=d.blocks[findB(ds.upitem)].data.items,q=+ds.i,tmp=it[q-1];it[q-1]=it[q];it[q]=tmp;changed(true);return;}
+    if(ds.rmdocphoto){d.photo="";changed(true);return;}
+    if(ds.addtype){var nb=NDL.block(ds.addtype);d.blocks.splice(insertAt(),0,nb);E.sel=nb.id;E.add=null;changed(true);return;}
+    if(t.id==="addOpen"){E.add={desc:""};renderEditor();return;}
+    if(t.id==="addClose"){E.add=null;renderEditor();return;}
+  });
+}
+function openPreview(d){
+  var ov=document.getElementById("overlay");
+  d=withClub(d);ov.innerHTML='<div class="ndl" id="cv">'+NDL.render(d)+'</div><button class="btn dark close" id="ovClose">'+ic("back")+'Вернуться в редактор</button>';
+  ov.hidden=false;ov.scrollTop=0;document.body.style.overflow="hidden";
+  NDL.bind(document.getElementById("cv"),d,{submit:function(){return Promise.resolve({mode:"manual"});}});
+  document.getElementById("ovClose").onclick=closeOverlay;
+}
+function closeOverlay(){var ov=document.getElementById("overlay");if(!ov.hidden){ov.hidden=true;ov.innerHTML="";document.body.style.overflow="";}}
+
+/* ================= Сохранить всё / открыть ================= */
+document.getElementById("exportAll").onclick=function(e){e.preventDefault();download("noodome-priglasheniya-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify({kind:"noodome-invites",docs:DB.docs,club:DB.club,clubVersion:DB.clubVersion}),"application/json");toast("Файл со всеми приглашениями скачан");};
+document.getElementById("importAll").onclick=function(e){e.preventDefault();document.getElementById("importFile").click();};
+document.getElementById("importFile").onchange=function(e){var f=e.target.files[0];if(!f)return;f.text().then(function(t){
+  var j=JSON.parse(t),list=j.docs?Object.keys(j.docs).map(function(k){return j.docs[k];}):[j],n=0;
+  list.forEach(function(d){if(d&&d.slug&&d.name&&Array.isArray(d.blocks)){DB.docs[d.slug]=d;n++;}});
+  if(j.club&&typeof j.club==="object"){DB.club=Object.assign(clubFromSeed(),j.club);DB.clubVersion=j.clubVersion||DB.clubVersion;n=n||1;}
+  if(!n)throw new Error("empty");S.ed=null;persist();toast("Открыто приглашений: "+n);go("invites");
+}).catch(function(){toast("Это не файл приглашений Noôdome");});e.target.value="";};
+
+window.NDApp={DB:DB,withClub:withClub,standalone:function(s){return standalone(DB.docs[s]);},createPrompt:createPrompt};
+route();
+})();
+</script>
+</body>
+</html>
