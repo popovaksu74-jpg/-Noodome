@@ -35,6 +35,7 @@
     <nav class="nav" aria-label="Разделы">
       <a href="#invites" data-nav="invites"><svg class="i"><use href="#i-users"/></svg><span class="label">Приглашения</span></a>
       <a href="#new" data-nav="new"><svg class="i"><use href="#i-plus"/></svg><span class="label">Новое</span></a>
+      <a href="#ai" data-nav="ai"><svg class="i"><use href="#i-spark"/></svg><span class="label">Подключение ИИ</span></a>
       <a href="#club" data-nav="club"><svg class="i"><use href="#i-folder"/></svg><span class="label">Клуб: общие блоки</span></a>
     </nav>
     <div class="side-foot">
@@ -84,6 +85,8 @@ var KNOW={
   tone:"Тон Noôdome: про людей и смыслы, а не про статус и сервис. Спокойная уверенность: без превосходных степеней, восклицательных знаков, срочности. На «вы» со строчной. Конкретные детали вместо общих слов.\nГоворим: сообщество, участники, единомышленники, неслучайные встречи, рекомендация, встреча-знакомство, делиться, вместе, проекты.\nНе говорим: элитный, VIP, премиум, эксклюзивное предложение, успейте, нетворкинг, полезные связи, статус, престиж, клиенты, прокачать.\nТексты от первого лица пишет человек, а не клуб: своя интонация, его собственные слова там, где возможно. Без перечня привилегий и цен.",
   club:"Noôdome — сообщество единомышленников и клубное пространство в центре Москвы (Романов переулок, 2), основано в 2020 году Рубеном Варданяном и Вероникой Зонабенд. Около 1000 участников, 26 амбассадоров, 800+ событий в год, 4000 м², три террасы. Ценности: доверие, интеграция разнообразия, социальная ответственность, преемственность, постоянное самообразование. Вступление: рекомендация участника → встреча-знакомство в пространстве и анкета → решение адмиссионного комитета → приглашение. Взносы вносятся только после решения комитета. Есть семейная программа, молодёжные условия для 18–29 лет."
 };
+/* Пример для показа без ИИ: вымышленный участник */
+var DEMO={"text": "Интервью для клуба. Елена Соколова, основательница керамической мастерской в Суздале.\n\nЯ родилась в Суздале и после учёбы в Москве вернулась в родной город. Двенадцать лет делаю посуду и плитку, у нас небольшая мастерская на восемь человек. Три года назад мы начали вести бесплатные занятия по керамике для соседей и пожилых людей из нашего района. Сначала приходили пять человек, сейчас каждую субботу собирается около тридцати. Для меня это важнее продаж: после занятий люди остаются пить чай и разговаривают.\n\nВ Noôdome я попала по рекомендации знакомого архитектора. Меня удивило, что здесь можно просто прийти на лекцию или концерт и поговорить с людьми из совсем других сфер: учёными, музыкантами, предпринимателями. В обычной жизни я почти не встречаю таких людей. Мне интересны темы малых городов, ремесла и того, как сохранять традиции, но не превращать их в музей. Очень хочу, чтобы больше людей из регионов узнали, что такое сообщество существует.\n\nПроект «Субботняя глина» мы делаем вместе с участницей клуба, социальным педагогом Ольгой. Она помогла придумать формат для детей с особенностями, и мы провели первую выездную субботу в Москве. Лучшее, что я слышала: «Я думал, что не умею ничего делать руками».", "profile": {"name": "Елена Соколова", "nameGenitive": "Елены Соколовой", "signoff": "Елена", "role": "Основательница керамической мастерской в Суздале", "themes": ["ремесло", "малые города", "традиции"], "facts": [{"field": "Для меня Noôdome", "source": "Пересказ интервью: удивило, что можно говорить с людьми из разных сфер"}, {"field": "Что мне близко", "source": "Вывод: темы малых городов и ремесла сопоставлены с сообществами клуба"}], "gaps": ["С какого года Елена в клубе?", "Какие события клуба она посещала на самом деле?"], "omit": ["Продажи и выручка мастерской: не берём на страницу"]}, "texts": {"why": "В Noôdome я попала по рекомендации знакомого. Меня удивило, что здесь можно просто прийти на лекцию или концерт и поговорить с учёными, музыкантами, предпринимателями. В обычной жизни я почти не встречаю таких людей. Для мастера из небольшого города это редкая возможность: услышать другой взгляд и вернуться к своей работе с новыми вопросами.", "mine": {"title": "Что мне здесь близко", "intro": "Темы, о которых я хочу говорить с людьми из других сфер.", "items": [{"label": "Ремесло и традиции", "text": "Двенадцать лет делаю керамику и думаю, как хранить традиции и не превращать их в музей. В клубе есть сообщество «Культурный код»."}, {"label": "Малые города", "text": "Я вернулась в родной Суздаль и вижу, как много там можно сделать. В клубе есть сообщество «Развитие территорий»."}, {"label": "Занятия для всех", "text": "Мы ведём бесплатные субботние занятия для соседей. В клубе есть сообщество «Я и благотворительность»."}]}, "story": {"label": "Мой проект с Noôdome", "title": "«Субботняя глина»", "text": "Три года назад мы начали звать соседей на бесплатные занятия по керамике. Сначала пришло пять человек, теперь по субботам собирается около тридцати, и после занятий все остаются пить чай.\n\nСо временем к нам присоединилась участница клуба, социальный педагог Ольга. Вместе мы придумали формат для детей с особенностями и провели первую выездную субботу в Москве.", "quote": "Я думал, что не умею ничего делать руками.", "linkUrl": ""}, "messenger": "Здравствуйте! Хочу пригласить вас в Noôdome. Это сообщество, где я встречаю людей из совсем других сфер. Вот моё личное приглашение: {ссылка}"}};
 var ANSWER="\n\nОтветь одним сообщением: только JSON, без пояснений до и после, без артефактов и файлов.";
 var RULES="ПРАВИЛА ИЗВЛЕЧЕНИЯ\n1. Ничего не выдумывай. Каждое утверждение опирается на материалы. Нет данных — оставь поле пустым и добавь вопрос в gaps.\n2. Цитаты только дословные, без правок. Пересказ помечай как пересказ.\n3. Выбери 2–3 главные вещи о человеке: почему ему важен клуб и чем он интересен другим. Остальное перечисли в omit с причиной.\n4. Не выноси на страницу: финансы и выручку, здоровье, подробности о близких сверх нужного, политику, всё, что может смутить человека при публикации.\n5. Сопоставь темы человека с сообществами клуба из списка. Это вывод, помечай его как вывод.\n6. Пиши по-русски, коротко и конкретно.";
 var TYPE_HINT={hero:"Имя и приглашение на однотонном фоне",why:"Один абзац и фото участника в клубе",letter:"Обращение от первого лица",list:"Темы, сообщества, причины",story:"Проект с фото и ссылкой",quote:"Яркая фраза человека",text:"Свободный текст",photo:"Снимок с подписью",figures:"Клуб в цифрах",faq:"Ответы на частые вопросы",
@@ -144,22 +147,65 @@ function download(name,text,type){var a=document.createElement("a");a.href=URL.c
 function jsonSafe(v){return JSON.stringify(v).replace(/</g,"\\u003c").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029");}
 function msgText(d){return String(d.messenger||"Здравствуйте! Хочу пригласить вас в Noôdome, это сообщество, в котором я давно. Вот моё личное приглашение: {ссылка}");}
 
-/* ================= Мостик к обычному чату Claude ================= */
-/* Запрос копируется в буфер, его вставляют в claude.ai, ответ вставляют обратно. API не нужен. */
+/* ================= ИИ: свой ключ в браузере или мостик через чат ================= */
+/* Ключ хранится только в localStorage этого браузера. В экспорт, в лендинги и на GitHub он не попадает. */
+var PROVIDERS={
+  gemini:{label:"Google Gemini (есть бесплатный тариф)",model:"gemini-2.5-flash",base:"",help:"Ключ: aistudio.google.com/apikey"},
+  groq:{label:"Groq (есть бесплатный тариф)",model:"llama-3.3-70b-versatile",base:"https://api.groq.com/openai/v1",help:"Ключ: console.groq.com/keys. У бесплатного тарифа маленький лимит на длину текста"},
+  openrouter:{label:"OpenRouter (есть бесплатные модели)",model:"meta-llama/llama-3.3-70b-instruct:free",base:"https://openrouter.ai/api/v1",help:"Ключ: openrouter.ai/keys. Бесплатные модели часто перегружены"},
+  anthropic:{label:"Claude (платный ключ API)",model:"claude-sonnet-5-5",base:"",help:"Ключ: console.anthropic.com"}
+};
+function aiCfg(){var a=(DB.settings||{}).ai;return a&&a.key&&a.provider&&PROVIDERS[a.provider]?a:null;}
+function aiErr(status,txt){
+  if(status===400&&/API key|api_key/i.test(txt))return "Ключ не подошёл. Проверьте, что скопировали его целиком.";
+  if(status===401||status===403)return "Ключ не подошёл или у него нет доступа. Проверьте ключ в настройках.";
+  if(status===429)return "Закончился лимит бесплатного тарифа. Подождите минуту и нажмите ещё раз.";
+  if(status===413)return "Текст слишком длинный для этого тарифа. Сократите материалы или выберите Gemini.";
+  return "Сервис ИИ ответил ошибкой "+status+". "+String(txt||"").slice(0,160);
+}
+function callAI(prompt){
+  var a=aiCfg();if(!a)return Promise.reject(new Error("Сначала подключите ИИ в настройках слева."));
+  var P=PROVIDERS[a.provider],model=(a.model||P.model).trim(),url,opt;
+  if(a.provider==="gemini"){
+    url="https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent";
+    opt={method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":a.key.trim()},body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}],generationConfig:{responseMimeType:"application/json",temperature:0.4}})};
+  }else if(a.provider==="anthropic"){
+    url="https://api.anthropic.com/v1/messages";
+    opt={method:"POST",headers:{"Content-Type":"application/json","x-api-key":a.key.trim(),"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:model,max_tokens:8000,messages:[{role:"user",content:prompt}]})};
+  }else{
+    url=String(a.base||P.base).replace(/\/+$/,"")+"/chat/completions";
+    opt={method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+a.key.trim()},body:JSON.stringify({model:model,messages:[{role:"user",content:prompt}],temperature:0.4})};
+  }
+  return fetch(url,opt).then(function(r){return r.text().then(function(t){
+    if(!r.ok)throw new Error(aiErr(r.status,t));
+    var j;try{j=JSON.parse(t);}catch(e){throw new Error("ИИ ответил не по-человечески. Попробуйте ещё раз.");}
+    var out=a.provider==="gemini"?((((j.candidates||[])[0]||{}).content||{}).parts||[]).map(function(x){return x.text||"";}).join(""):
+      a.provider==="anthropic"?(j.content||[]).map(function(x){return x.text||"";}).join(""):(((j.choices||[])[0]||{}).message||{}).content||"";
+    if(!out)throw new Error("ИИ вернул пустой ответ. Попробуйте ещё раз.");
+    return out;});},function(){throw new Error("Нет связи с сервисом ИИ. Проверьте интернет и попробуйте ещё раз.");});
+}
 var BR={};
 function bridge(id,label,getPrompt,apply){
   BR[id]={get:getPrompt,apply:apply};
-  return '<div class="ai bridge"><span class="lbl">'+ic("spark")+esc(label)+'</span>'+
-    '<div class="row"><button class="btn sm primary" data-bcopy="'+id+'">'+ic("copy")+'1. Скопировать запрос</button><a class="btn sm" href="https://claude.ai/new" target="_blank" rel="noopener">'+ic("ext")+'2. Открыть Claude</a></div>'+
-    '<textarea data-bans="'+id+'" placeholder="3. Вставьте сюда ответ Claude целиком" aria-label="Ответ Claude"></textarea>'+
-    '<div class="row"><button class="btn sm dark" data-bapply="'+id+'">4. Применить</button><span class="err small" data-berr="'+id+'"></span></div></div>';
+  var manual='<div class="row"><button class="btn sm'+(aiCfg()?'':' primary')+'" data-bcopy="'+id+'">'+ic("copy")+(aiCfg()?'Скопировать запрос':'1. Скопировать запрос')+'</button><a class="btn sm" href="https://claude.ai/new" target="_blank" rel="noopener">'+ic("ext")+(aiCfg()?'Открыть Claude':'2. Открыть Claude')+'</a></div>'+
+    '<textarea data-bans="'+id+'" placeholder="Вставьте сюда ответ ИИ целиком" aria-label="Ответ ИИ"></textarea>'+
+    '<div class="row"><button class="btn sm dark" data-bapply="'+id+'">Применить ответ</button><span class="err small" data-berr="'+id+'"></span></div>';
+  if(aiCfg())return '<div class="ai bridge"><span class="lbl">'+ic("spark")+esc(label)+'</span><div class="row"><button class="btn sm primary" data-bgen="'+id+'">'+ic("spark")+'Сгенерировать</button><span class="err small" data-berr="'+id+'"></span></div>'+
+    '<details class="more"><summary>Или вручную через чат claude.ai</summary><div style="display:grid;gap:10px;margin-top:10px">'+manual+'</div></details></div>';
+  return '<div class="ai bridge"><span class="lbl">'+ic("spark")+esc(label)+'</span><p class="hint">Чтобы текст писался прямо здесь, подключите ИИ: <a href="#settings">Подключение ИИ</a>. Пока можно через обычный чат Claude:</p>'+manual+'</div>';
 }
 document.addEventListener("click",function(e){
   var c=e.target.closest("[data-bcopy]");
   if(c){var p=BR[c.dataset.bcopy].get();if(p)copy(p,"Запрос скопирован. Вставьте его в Claude и отправьте");return;}
+  var g=e.target.closest("[data-bgen]");
+  if(g){var gid=g.dataset.bgen,ge=g.closest(".row").querySelector("[data-berr]"),gp=BR[gid]&&BR[gid].get();if(!gp)return;
+    ge.textContent="";g.disabled=true;g.lastChild.textContent="Пишу, это займёт до минуты…";
+    callAI(gp).then(function(t){if(!BR[gid])return;var j=parseJson(t);if(!j)throw new Error("ИИ ответил не в том формате. Нажмите «Сгенерировать» ещё раз.");var m=BR[gid].apply(j);if(m&&ge.isConnected)ge.textContent=m;})
+      .catch(function(x){if(ge.isConnected)ge.textContent=x.message||"Не получилось";})
+      .then(function(){if(g.isConnected){g.disabled=false;g.lastChild.textContent="Сгенерировать";}});return;}
   var a=e.target.closest("[data-bapply]");
-  if(a){var id=a.dataset.bapply,ta=document.querySelector('[data-bans="'+id+'"]'),er=document.querySelector('[data-berr="'+id+'"]');
-    var j=parseJson(ta&&ta.value);if(!j){er.textContent="Не похоже на ответ Claude. Скопируйте его ответ целиком.";return;}
+  if(a){var id=a.dataset.bapply,ta=document.querySelector('[data-bans="'+id+'"]'),er=a.closest(".row").querySelector("[data-berr]");
+    var j=parseJson(ta&&ta.value);if(!j){er.textContent="Не похоже на ответ ИИ. Скопируйте его ответ целиком.";return;}
     try{var m=BR[id].apply(j);if(m)er.textContent=m;}catch(x){er.textContent=x.message||"Не получилось применить ответ.";}}
 });
 
@@ -207,6 +253,25 @@ function standalone(doc){
     '.then(function(r){return r.json();}).then(function(d){if(!d||!d.ok)throw new Error("error");return {mode:"saved"};});}});})();\n<\/script>\n</body>\n</html>\n';
 }
 
+
+/* ================= Подключение ИИ ================= */
+function renderAI(){
+  var a=(DB.settings&&DB.settings.ai)||{provider:"gemini",key:"",model:"",base:""},P=PROVIDERS[a.provider]||PROVIDERS.gemini;
+  var h='<div class="pagehead"><div><p class="eyebrow">Настройки</p><h1 class="title">Подключение ИИ</h1><p class="lead">С ключом кнопка «Сгенерировать» пишет тексты прямо в сервисе. Ключ нужен каждому сотруднику свой: он вводится один раз и хранится только в этом браузере.</p></div></div>';
+  h+='<div class="panel" style="display:grid;gap:14px;max-width:640px"><label class="field"><span>Чей ИИ использовать</span><select id="ai-prov">'+Object.keys(PROVIDERS).map(function(k){return '<option value="'+k+'"'+(a.provider===k?" selected":"")+'>'+esc(PROVIDERS[k].label)+'</option>';}).join("")+'</select></label>'+
+    '<p class="hint" id="ai-help">'+esc(P.help)+'</p>'+
+    '<label class="field"><span>Ключ</span><input id="ai-key" type="password" autocomplete="off" spellcheck="false" value="'+esc(a.key||"")+'" placeholder="Вставьте ключ"></label>'+
+    '<label class="field"><span>Модель (можно не менять)</span><input id="ai-model" value="'+esc(a.model||"")+'" placeholder="'+esc(P.model)+'"></label>'+
+    '<div class="row"><button class="btn primary" id="ai-test">Проверить ключ</button><button class="btn ghost" id="ai-clear">Удалить ключ из этого браузера</button><span class="small" id="ai-res"></span></div></div>';
+  h+='<div class="panel" style="max-width:640px;display:grid;gap:8px"><b class="h3">Что важно знать</b><ul class="gaps"><li>Ключ не попадает в файл «Сохранить всё», в скачанные лендинги и на GitHub. Никому его не отправляйте и не вставляйте в код.</li><li>Бесплатные тарифы у некоторых сервисов могут использовать присланные тексты для улучшения моделей. Интервью с участниками содержат личные данные. Если это важно, берите платный ключ или не отправляйте лишнее.</li><li>Если лимит кончился или ИИ недоступен, запрос можно перенести в чат Claude вручную: кнопка «Или вручную» у каждого блока.</li></ul></div>';
+  view.innerHTML=h;
+  function save(){DB.settings=DB.settings||{};DB.settings.ai={provider:document.getElementById("ai-prov").value,key:document.getElementById("ai-key").value.trim(),model:document.getElementById("ai-model").value.trim()};persist();}
+  document.getElementById("ai-prov").onchange=function(){save();DB.settings.ai.model="";persist();renderAI();};
+  document.getElementById("ai-key").oninput=save;document.getElementById("ai-model").oninput=save;
+  document.getElementById("ai-clear").onclick=function(){DB.settings.ai={provider:document.getElementById("ai-prov").value,key:"",model:""};persist();renderAI();toast("Ключ удалён из этого браузера");};
+  document.getElementById("ai-test").onclick=function(){save();var r=document.getElementById("ai-res");r.className="small";r.textContent="Проверяю…";
+    callAI('Верни JSON {"ok":true}').then(function(t){r.className="small";r.style.color="var(--accent)";r.textContent=parseJson(t)?"Работает":"ИИ ответил, но не в формате JSON: попробуйте другую модель";},function(x){r.style.color="";r.className="err small";r.textContent=x.message;});};
+}
 /* ================= Роутинг ================= */
 function hash(){return (location.hash||"").replace(/^#/,"")||"invites";}
 function go(h){if(location.hash==="#"+h)route();else location.hash=h;}
@@ -216,6 +281,7 @@ function route(){
   closeOverlay();BR={};
   if(h==="new")renderCreate();
   else if(h==="club")openClub();
+  else if(h==="ai"||h==="settings"){S.ed=null;renderAI();}
   else if(h.indexOf("edit-")===0)openEditor(decodeURIComponent(h.slice(5)));
   else{S.ed=null;renderInvites();}
   window.scrollTo(0,0);
@@ -249,17 +315,18 @@ function renderInvites(){
 function renderCreate(){
   var cr=S.create||(S.create={text:"",file:"",photo:"",reading:false,err:""});
   var has=cr.text.trim().length>=200;
-  var h='<div class="create"><div class="pagehead"><div><p class="eyebrow">Новое приглашение</p><h1 class="title">Отправьте текст про участника, соберём лендинг</h1><p class="lead">Тексты пишет Claude в обычном чате на claude.ai. Запрос и ответ переносятся копированием, ключ API не нужен.</p></div></div><ol class="steps">';
+  var h='<div class="create"><div class="pagehead"><div><p class="eyebrow">Новое приглашение</p><h1 class="title">Отправьте текст про участника, соберём лендинг</h1><p class="lead">Три блока (почему я здесь, что близко, проект) пишет ИИ по вашему материалу, остальное общее для всех. Подключите ИИ один раз в разделе «Подключение ИИ». Без подключения запрос можно перенести в чат Claude вручную.</p></div></div><ol class="steps">';
   h+='<li class="'+(has?"done":"")+'"><b>Материалы об участнике</b>';
   if(cr.reading)h+='<div class="row"><span class="spinner"></span>Читаю файл…</div>';
   else if(has)h+='<div class="row"><span class="hint">'+(cr.file?esc(cr.file)+' · ':'')+cr.text.length.toLocaleString("ru-RU")+' символов</span><button class="btn sm ghost" id="resetText">Заменить</button></div>';
   else h+='<label class="drop" id="drop" for="file" style="padding:32px 20px"><span class="dropicon">'+ic("upload")+'</span><b style="font-size:26px">Перетащите файл сюда</b><span class="muted">или нажмите, чтобы выбрать</span><span class="formats">Интервью, анкета, заметки · .docx .pdf .txt .md .rtf .html</span></label><input id="file" type="file" hidden accept=".docx,.pdf,.txt,.md,.rtf,.html,.htm,.srt,.vtt,.csv,.json,text/*,application/pdf">'+
-    '<details class="more"><summary>Или вставьте текст</summary><div class="field" style="margin-top:10px"><textarea id="paste" rows="8" aria-label="Текст про участника" placeholder="Стенограмма, анкета или заметки после разговора"></textarea></div><div class="row"><button class="btn sm primary" id="usePaste">Готово</button></div></details>';
+    '<details class="more"><summary>Или вставьте текст</summary><div class="field" style="margin-top:10px"><textarea id="paste" rows="8" aria-label="Текст про участника" placeholder="Стенограмма, анкета или заметки после разговора"></textarea></div><div class="row"><button class="btn sm primary" id="usePaste">Готово</button></div></details>'+
+    '<div class="row"><button class="btn sm ghost" id="demoBtn">'+ic("spark")+'Нет материалов? Показать на вымышленном примере</button></div>';
   if(cr.err)h+='<p class="err small">'+esc(cr.err)+'</p>';
   h+='</li>';
   h+='<li class="'+(cr.photo?"done":"")+'"><b>Фото участника</b><div class="row">'+(cr.photo?'<img class="thumb" src="'+esc(cr.photo)+'" alt="">':'')+'<label class="btn sm" for="cphoto">'+ic("upload")+(cr.photo?"Заменить":"Загрузить фото")+'</label><input id="cphoto" type="file" accept="image/*" hidden><span class="hint">Лучше снимок, сделанный в стенах клуба. Можно и позже, в редакторе</span></div></li>';
-  h+='<li><b>Тексты от Claude</b>'+(has?bridge("create","Claude выпишет факты и напишет письмо в тоне Noôdome",function(){return createPrompt(S.create.text);},function(j){var p=j.profile||(j.name?j:null),t=j.texts||(j.letter?j:null);if(!p&&!t)throw new Error("В ответе нет профиля и текстов. Скопируйте ответ целиком.");finishCreate(p,t);}):'<p class="hint">Сначала добавьте материалы.</p>')+
-    '<div class="row"><button class="btn sm ghost" id="noAi"'+(has?'':' disabled')+'>Собрать без Claude, тексты впишу сам</button></div></li>';
+  h+='<li><b>Тексты от ИИ</b>'+(has?bridge("create","Claude выпишет факты и напишет письмо в тоне Noôdome",function(){return createPrompt(S.create.text);},function(j){var p=j.profile||(j.name?j:null),t=j.texts||(j.letter?j:null);if(!p&&!t)throw new Error("В ответе нет профиля и текстов. Скопируйте ответ целиком.");finishCreate(p,t);}):'<p class="hint">Сначала добавьте материалы.</p>')+(cr.demo&&has?'<div class="banner">'+ic("info")+'<div class="grow"><b>Режим показа: вымышленный участник</b><span>Запрос выше можно посмотреть и скопировать. Чтобы не обращаться к ИИ, нажмите кнопку: ответ записан заранее и подставится так же, как настоящий.</span></div><button class="btn sm dark" id="demoApply">Применить готовый ответ</button></div>':'')+
+    '<div class="row"><button class="btn sm ghost" id="noAi"'+(has?'':' disabled')+'>Собрать без ИИ, тексты впишу сам</button></div></li>';
   h+='</ol></div>';
   view.innerHTML=h;
   var file=document.getElementById("file");
@@ -271,6 +338,8 @@ function renderCreate(){
     drop.addEventListener("drop",function(e){var f=e.dataTransfer&&e.dataTransfer.files[0];if(f)takeFile(f);});
     document.getElementById("usePaste").onclick=function(){var v=document.getElementById("paste").value.trim();if(v.length<200){toast("Добавьте хотя бы несколько абзацев о человеке");return;}cr.text=v;cr.file="";cr.err="";renderCreate();};
   }
+  var dmb=document.getElementById("demoBtn");if(dmb)dmb.onclick=function(){cr.text=DEMO.text;cr.file="пример-интервью.txt";cr.demo=true;cr.err="";renderCreate();};
+  var dma=document.getElementById("demoApply");if(dma)dma.onclick=function(){finishCreate(DEMO.profile,DEMO.texts);};
   var rs=document.getElementById("resetText");if(rs)rs.onclick=function(){cr.text="";cr.file="";renderCreate();};
   document.getElementById("cphoto").onchange=function(e){var f=e.target.files[0];if(f)resizePhoto(f).then(function(u){cr.photo=u;renderCreate();});};
   document.getElementById("noAi").onclick=function(){finishCreate(null,null);};
@@ -292,6 +361,7 @@ function finishCreate(p,t){
   var now=new Date().toISOString();
   var doc={slug:slugify(name),name:name,nameGenitive:p.nameGenitive||name,signoff:p.signoff||String(name).split(" ")[0],role:t.role||p.role||"",photo:cr.photo||"",photoIsPortrait:true,status:"draft",
     blocks:blocks,messenger:t.messenger||"",review:{facts:facts,gaps:gaps},profile:p,source:String(cr.text||"").slice(0,40000),fileName:cr.file||"",createdAt:now,updatedAt:now};
+  if(cr.demo){doc.demo=true;doc.review.gaps.unshift("Это вымышленный пример для показа. Удалите его перед настоящей работой");}
   DB.docs[doc.slug]=doc;persist();S.create=null;toast("Приглашение готово. Проверьте его");go("edit-"+doc.slug);
 }
 
@@ -513,7 +583,7 @@ document.getElementById("importFile").onchange=function(e){var f=e.target.files[
   if(!n)throw new Error("empty");S.ed=null;persist();toast("Открыто приглашений: "+n);go("invites");
 }).catch(function(){toast("Это не файл приглашений Noôdome");});e.target.value="";};
 
-window.NDApp={DB:DB,withClub:withClub,standalone:function(s){return standalone(DB.docs[s]);},createPrompt:createPrompt};
+window.NDApp={DB:DB,callAI:callAI,aiCfg:aiCfg,withClub:withClub,standalone:function(s){return standalone(DB.docs[s]);},createPrompt:createPrompt};
 route();
 })();
 </script>
