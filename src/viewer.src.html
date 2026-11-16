@@ -20,13 +20,18 @@
 <script>
 /* Страница-приглашение по ссылке p.html?ref=код. Данные берутся из общего хранилища команды (адрес в config.json). */
 (function () {
-  var root = document.getElementById("ndl"), q = new URLSearchParams(location.search), ref = (q.get("ref") || "").trim(), BACKEND = "";
+  var root = document.getElementById("ndl"), q = new URLSearchParams(location.search), ref = (q.get("ref") || "").trim(), BACKEND = "", CFG = {};
   var st = document.createElement("style"); st.textContent = "html,body{margin:0;background:var(--nd-bg)}" + NDL.css + ".ndl .vm{min-height:80vh;display:grid;align-content:center;justify-items:center;gap:14px;text-align:center;padding:40px 24px}.ndl .vm h1{font-size:34px;line-height:1.15;max-width:14em}.ndl .vm p{max-width:30em;color:var(--nd-ink2)}";
   document.head.appendChild(st);
-  function note(title, text) { root.innerHTML = '<div class="vm"><span class="mark"><svg viewBox="0 0 70.06 20" aria-hidden="true"><path d="M70.05 20C62.54 8.06 49.61 0 35.03 0 20.29 0 7.52 7.91 0 20h70.05Z"/></svg>Noôdome</span><h1>' + NDL.esc(title) + "</h1><p>" + NDL.esc(text) + "</p></div>"; }
+  function note(title, text, linkHref, linkText) { root.innerHTML = '<div class="vm"><span class="mark"><svg viewBox="0 0 70.06 20" aria-hidden="true"><path d="M70.05 20C62.54 8.06 49.61 0 35.03 0 20.29 0 7.52 7.91 0 20h70.05Z"/></svg>Noôdome</span><h1>' + NDL.esc(title) + "</h1><p>" + NDL.esc(text) + "</p>" + (linkHref ? '<a class="more-link" href="' + NDL.esc(linkHref) + '">' + NDL.esc(linkText || "Открыть") + "</a>" : "") + "</div>"; }
+  /* Пояснение для учебной версии: в config.json стоит "prototype": true. В рабочей версии его убирают. */
+  function missing() {
+    if (CFG.prototype) note("Приглашение пока не открывается", "Это учебный прототип. Общее хранилище, из которого страница берёт приглашения, в учебной версии не подключено, либо это приглашение ещё не согласовано. В рабочей версии по такой ссылке будет открываться личное приглашение участника.", CFG.example || "", "Пример готового приглашения");
+    else note("Приглашение не найдено", "Возможно, оно ещё не опубликовано или ссылка устарела. Попросите отправителя проверить адрес.");
+  }
   if (!ref) { note("Приглашение не найдено", "В адресе нет кода приглашения. Попросите отправителя прислать ссылку ещё раз."); return; }
   fetch("config.json", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (cfg) {
-    BACKEND = (cfg && cfg.backend) || "";
+    CFG = cfg || {}; BACKEND = CFG.backend || "";
     if (!/^https:\/\//.test(BACKEND)) throw { code: "config" };
     return fetch(BACKEND + "?action=page&ref=" + encodeURIComponent(ref)).then(function (r) { return r.json(); });
   }).then(function (j) {
@@ -40,8 +45,8 @@
         .then(function (r) { return r.json(); }).then(function (d) { if (!d || !d.ok) throw new Error("error"); return { mode: "saved" }; });
     } });
   }).catch(function (e) {
-    if (e && e.code === "missing") note("Приглашение не найдено", "Возможно, оно ещё не опубликовано или ссылка устарела. Попросите отправителя проверить адрес.");
-    else if (e && e.code === "config") note("Сервис пока не подключён", "Страница настроена не до конца. Напишите команде клуба: customers@nd.club.");
+    if (e && e.code === "missing") missing();
+    else if (e && e.code === "config") { if (CFG.prototype) missing(); else note("Сервис пока не подключён", "Страница настроена не до конца. Напишите команде клуба: customers@nd.club."); }
     else note("Не получилось загрузить приглашение", "Проверьте интернет и обновите страницу.");
   });
 })();

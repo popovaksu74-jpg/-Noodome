@@ -124,15 +124,16 @@
     ".ndl .mark{display:inline-flex;align-items:center;gap:10px;font:300 24px/1 var(--nd-serif);letter-spacing:.02em;color:inherit;text-decoration:none}",
     ".ndl .mark svg{width:30px;height:auto;fill:currentColor;display:block}",
     /* 1. обложка */
-    ".ndl .b-hero{padding-block:18px 40px;min-height:min(94svh,860px);display:flex}",
-    ".ndl .b-hero>.w{width:100%;display:flex;flex-direction:column}",
+    ".ndl .b-hero{padding-block:18px 56px;min-height:min(86svh,800px);display:flex;flex-direction:column}",
+        ".ndl .b-hero>.w{width:100%}",
     ".ndl .cv-top{display:flex;justify-content:space-between;align-items:center;gap:12px}",
-    ".ndl .cv{flex:1;display:grid;align-content:center;justify-items:center;text-align:center;padding-block:48px 8px}",
-    ".ndl .arc{display:block;width:min(86%,560px);height:auto;color:var(--hi);overflow:visible}",
-    ".ndl .arc path{fill:none;stroke:currentColor;stroke-width:1.4;vector-effect:non-scaling-stroke}",
-    ".ndl .cv h1{font-size:42px;line-height:1.08;max-width:13em;margin-top:30px}",
-    ".ndl .cv .role{margin-top:20px;max-width:34em;font-size:15px;line-height:1.6;color:var(--fg2)}",
-    ".ndl .cv .btn{justify-self:center;margin-top:36px}",
+    ".ndl .cv{flex:1;display:grid;align-content:center;padding-block:40px 0}",
+    ".ndl .cv-t{display:grid;justify-items:center;text-align:center;margin-top:26px}",
+    ".ndl .arc{display:block;width:100%;height:auto;aspect-ratio:1600/214;color:color-mix(in srgb,var(--fg) 88%,transparent);overflow:visible}",
+    ".ndl .arc path{fill:none;stroke:currentColor;stroke-width:1.2;vector-effect:non-scaling-stroke}",
+    ".ndl .cv h1{font-size:24px;line-height:1.28;max-width:17em;letter-spacing:.005em}",
+    ".ndl .cv .role{margin-top:16px;max-width:34em;font-size:14px;line-height:1.6;color:var(--fg2)}",
+    ".ndl .cv .btn{justify-self:center;margin-top:30px}",
     /* 2. для меня Noôdome */
     ".ndl .why{display:grid;gap:28px}",
     ".ndl .why .ph{width:min(100%,440px)}",
@@ -250,9 +251,10 @@
     /* широкий экран */
     "@container (min-width:760px){",
     ".ndl .b{padding-block:88px}",
-    ".ndl .b-hero{padding-block:24px 56px}",
-    ".ndl .cv h1{font-size:76px}",
-    ".ndl .cv .role{font-size:17px}",
+    ".ndl .b-hero{padding-block:24px 72px}",
+    ".ndl .cv-t{margin-top:40px}",
+    ".ndl .cv h1{font-size:38px;max-width:22em}",
+    ".ndl .cv .role{font-size:16px}",
     ".ndl .h{font-size:48px;margin-bottom:32px}",
     ".ndl .why{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:72px;align-items:center}",
     ".ndl .say p{font-size:30px}",
@@ -329,10 +331,10 @@
   var R = {
     hero: function (d, c) {
       var title = d.title || (d.quote ? "" : "{name} приглашает вас познакомиться с Noôdome");
-      return '<div class="cv-top">' + markHtml("span") + (d.eyebrow ? '<span class="cap">' + esc(sub(d.eyebrow, c)) + "</span>" : "") + "</div>" +
-        '<div class="cv"><svg class="arc" viewBox="-1 -1 72.05 21" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path d="M0 20C7.52 7.91 20.29 0 35.03 0 49.61 0 62.54 8.06 70.05 20"/></svg>' +
-        "<h1>" + esc(sub(title || d.quote, c)) + "</h1>" + (d.role ? '<p class="role">' + esc(sub(d.role, c)) + "</p>" : "") +
-        (d.button !== "" ? '<a class="btn" href="#apply" data-ndl-go>' + esc(sub(d.button || "Познакомиться", c)) + "</a>" : "") + "</div>";
+      return '<div class="w"><div class="cv-top">' + markHtml("span") + (d.eyebrow ? '<span class="cap">' + esc(sub(d.eyebrow, c)) + "</span>" : "") + "</div></div>" +
+        '<div class="cv"><svg class="arc" viewBox="0 0 1600 214" preserveAspectRatio="none" aria-hidden="true"><path d="M0 213A1608.8 1608.8 0 0 1 1600 213"/></svg>' +
+        '<div class="w cv-t"><h1>' + esc(sub(title || d.quote, c)) + "</h1>" + (d.role ? '<p class="role">' + esc(sub(d.role, c)) + "</p>" : "") +
+        (d.button !== "" ? '<a class="btn" href="#apply" data-ndl-go>' + esc(sub(d.button || "Познакомиться", c)) + "</a>" : "") + "</div></div>";
     },
     why: function (d, c) {
       var photo = d.photo || c.photo, t = paras(d.text);
@@ -436,7 +438,7 @@
       var fn = R[b.type];
       if (!fn) return;
       h += '<section class="b b-' + b.type + " t-" + th[i] + (opts.selected === b.id ? " sel" : "") + '" data-bid="' + esc(b.id) + '"' + (b.type === "apply" ? ' id="apply"' : "") +
-        '><div class="w">' + fn(dataOf(b, c), c) + "</div></section>";
+        '>' + (b.type === "hero" ? fn(dataOf(b, c), c) : '<div class="w">' + fn(dataOf(b, c), c) + "</div>") + "</section>";
     });
     return h + footer();
   }
